@@ -39,22 +39,6 @@ The `/obs` page renders only the incoming video. It does not show controls, debu
 - No remote internet streaming of camera media.
 - No fallback to relay infrastructure when direct local WebRTC cannot connect.
 
-## Design
-
-- `src/client/index.html` is the Vite browser shell.
-- `src/client/App.svelte` owns WebRTC orchestration and room state; `src/client/components/` contains the Svelte UI sections.
-- Tailwind CSS is wired through the official Vite plugin. Utility classes live on Svelte markup; `src/client/app.css` only defines Tailwind theme tokens and small global browser defaults.
-- `src/client/` also contains browser helper modules for signaling, QR generation, and WebRTC diagnostics.
-- `src/index.ts` is a Cloudflare Worker that serves app routes, creates rooms, applies native rate limits, and upgrades signaling WebSockets.
-- `SignalingRoom` is a Durable Object keyed by room id. It forwards only SDP/ICE JSON between one active receiver and one camera.
-- `/obs` has receiver priority. `/` can preview the stream while OBS is absent, then stays available for pairing/status when OBS connects.
-- WebRTC is configured with `iceServers: []`. There is no STUN or TURN configuration.
-- ICE candidates with relay or server-reflexive candidate types are rejected.
-- The camera requests 4K/30 as an ideal constraint, then reports the actual browser track settings.
-- Sender tuning uses balanced adaptation so WebRTC can lower quality temporarily instead of building latency during short network dips.
-- The receiver reports incoming resolution/FPS, selected candidate path, inbound RTP stats, video element state, and a sampled rendered frame.
-- QR codes are generated in the browser, so there is no public QR-generation Worker endpoint.
-
 ## Usage
 
 ```sh
