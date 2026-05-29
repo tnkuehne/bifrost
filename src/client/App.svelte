@@ -10,15 +10,17 @@
   import StatusBlock from "./components/StatusBlock.svelte";
   import SummaryPanel from "./components/SummaryPanel.svelte";
   import Toolbar from "./components/Toolbar.svelte";
+  import githubMarkUrl from "./assets/github-mark.svg";
   import { createWebcamSession } from "./session.svelte";
 
+  const sourceUrl = "https://github.com/tnkuehne/bifrost";
   const session = createWebcamSession();
 
   onMount(session.mount);
 </script>
 
 <svelte:head>
-  <title>Local WebRTC Webcam</title>
+  <title>Bifrost</title>
 </svelte:head>
 
 <AppLayout mode={session.mode} debug={session.debug} remoteVideoVisible={session.hasRemoteVideo}>
@@ -34,12 +36,18 @@
 
   {#snippet panel()}
     <div class="grid gap-3">
-      <Toolbar
-        title={session.title}
-        debug={session.debug}
-        compact={!session.debug}
-        onToggleDebug={session.toggleDebug}
-      />
+      <div class="flex items-center justify-between gap-2">
+        <Toolbar title={session.title} compact={!session.debug} />
+        {#if session.mode !== "receiver"}
+          <button
+            class="min-h-10 cursor-pointer rounded-md border border-line bg-panel-2 px-3.5 text-text disabled:cursor-not-allowed disabled:opacity-[0.55]"
+            type="button"
+            onclick={session.toggleDebug}
+          >
+            {session.debug ? "Normal" : "Debug"}
+          </button>
+        {/if}
+      </div>
       <StatusBlock
         kind={session.statusKind}
         title={session.statusTitle}
@@ -93,3 +101,23 @@
     {/if}
   {/snippet}
 </AppLayout>
+
+{#if session.mode === "receiver"}
+  <a
+    class="fixed top-4 right-4 z-20 block opacity-80 transition hover:opacity-100 active:scale-[0.96]"
+    href={sourceUrl}
+    target="_blank"
+    rel="noreferrer"
+    aria-label="Open source on GitHub"
+    title="Open source on GitHub"
+  >
+    <img class="size-6 invert" src={githubMarkUrl} alt="" aria-hidden="true" />
+  </a>
+  <button
+    class="fixed right-4 bottom-4 z-20 min-h-10 cursor-pointer rounded-md border border-line bg-panel-2 px-3.5 text-text shadow-panel disabled:cursor-not-allowed disabled:opacity-[0.55]"
+    type="button"
+    onclick={session.toggleDebug}
+  >
+    {session.debug ? "Normal" : "Debug"}
+  </button>
+{/if}

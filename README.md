@@ -1,4 +1,6 @@
-# Local WebRTC Webcam
+# Bifrost
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Ftnkuehne%2Fbifrost)
 
 Use a phone as an OBS webcam source without a native phone app or a media relay.
 
