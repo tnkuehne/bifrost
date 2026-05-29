@@ -22,7 +22,12 @@
 </script>
 
 {#if pairing && !debug}
-  <section class="hidden"></section>
+  <section class="hidden">
+    <VideoFrame
+      frameClass="h-[min(100vh,calc(100vw*9/16))] w-[min(100vw,calc(100vh*16/9))] bg-black shadow-panel"
+      setVideo={setRemoteVideo}
+    />
+  </section>
 {:else if mode === "obs"}
   <section
     class="relative grid h-screen min-h-screen w-screen place-items-center overflow-hidden bg-black"
