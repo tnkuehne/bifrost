@@ -568,6 +568,7 @@
         els.pageRole.textContent = `${mode} (${role})`;
         els.iceServers.textContent = `${ICE_CONFIG.iceServers.length} configured`;
         updateDebugMode();
+        updateCameraControls();
 
         if (new URLSearchParams(location.search).get("fit") === "cover") {
           document.body.classList.add("fit-cover");
@@ -862,6 +863,7 @@
         state.stream = stream;
         localVideo.srcObject = stream;
         state.startedCamera = true;
+        updateCameraControls();
         renderCameraFormat(getVideoSettings(), "Safari returned");
         sendCameraMeta();
         setStatus("good", "Camera ready", "Waiting for the Ubuntu receiver.");
@@ -875,6 +877,7 @@
             track.stop();
           }
           state.stream = null;
+          updateCameraControls();
         }
         await startCamera();
         if (state.pc) {
@@ -885,6 +888,14 @@
             await tuneVideoSender(sender, track);
           }
         }
+      }
+
+      function updateCameraControls() {
+        if (mode !== "camera") {
+          return;
+        }
+        els.startCamera.classList.toggle("hidden", Boolean(state.stream));
+        els.switchCamera.classList.toggle("hidden", !state.stream);
       }
 
       async function tuneVideoSender(sender, track) {
