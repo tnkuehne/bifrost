@@ -78,6 +78,10 @@
         min-height: 100vh;
       }
 
+      body:not(.debug):not(.camera):not(.obs) .app {
+        place-items: center;
+      }
+
       body.debug .app,
       body.camera .app {
         grid-template-columns: minmax(0, 1fr) 390px;
@@ -133,15 +137,17 @@
       }
 
       .panel {
-        background: var(--panel);
         padding: 22px;
         overflow: auto;
       }
 
       body:not(.debug):not(.camera) .panel {
-        width: min(100%, 560px);
+        width: min(100%, 390px);
         min-height: auto;
         margin: 0 auto;
+        padding: 34px 22px;
+        background: transparent;
+        overflow: visible;
       }
 
       body.connected:not(.debug) .panel {
@@ -160,6 +166,7 @@
       body.debug .panel,
       body.camera .panel {
         min-height: 100vh;
+        background: var(--panel);
         border-left: 1px solid var(--line);
       }
 
@@ -180,6 +187,10 @@
         letter-spacing: 0;
         text-transform: uppercase;
         color: var(--muted);
+      }
+
+      body:not(.debug):not(.camera) h2 {
+        display: none;
       }
 
       .stack {
@@ -205,12 +216,34 @@
         padding: 12px;
       }
 
+      body:not(.debug):not(.camera) .status,
+      body:not(.debug):not(.camera) .summary {
+        background: transparent;
+      }
+
+      body:not(.debug):not(.camera) .status {
+        border: 0;
+        padding: 0;
+      }
+
+      body:not(.debug):not(.camera) .status p {
+        display: none;
+      }
+
       .toolbar {
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
+      }
+
+      body:not(.debug):not(.camera) .toolbar {
+        margin-bottom: 12px;
+      }
+
+      body:not(.debug):not(.camera) .toolbar h1 {
+        font-size: 22px;
       }
 
       .summary {
@@ -288,6 +321,13 @@
         padding: 14px;
       }
 
+      body:not(.debug):not(.camera) .qr-card {
+        margin-top: 22px;
+        border: 0;
+        border-radius: 10px;
+        padding: 20px;
+      }
+
       .qr-card img {
         display: block;
         width: min(100%, 260px);
@@ -295,7 +335,28 @@
       }
 
       body:not(.debug) .qr-card img {
-        width: min(100%, 360px);
+        width: min(100%, 340px);
+      }
+
+      body:not(.debug):not(.camera) #receiverPanel > .stack {
+        gap: 10px;
+      }
+
+      body:not(.debug):not(.camera) #receiverPanel > .stack:last-of-type {
+        margin-top: 14px;
+      }
+
+      body:not(.debug):not(.camera) #copyObsLink {
+        width: 100%;
+      }
+      }
+
+      body:not(.debug):not(.camera) #summaryPanel {
+        display: none;
+      }
+
+      body:not(.debug):not(.camera):not(.obs) #summaryPanel {
+        display: none !important;
       }
 
       .log {
@@ -313,6 +374,10 @@
 
       .hidden {
         display: none !important;
+      }
+
+      body:not(.debug) .debug-only {
+        display: none;
       }
 
       body.obs {
@@ -377,7 +442,7 @@
       <aside class="panel">
         <div class="stack">
           <div class="toolbar">
-            <h1 id="title">Local WebRTC Webcam</h1>
+            <h1 id="title">Receiver</h1>
             <button id="toggleDebug" type="button">Debug</button>
           </div>
           <div class="status">
@@ -398,11 +463,11 @@
             <div id="cameraLink" class="linkbox hidden"></div>
           </div>
 
-          <h2>OBS Browser Source</h2>
+          <h2 class="debug-only">OBS</h2>
           <div class="stack">
             <div id="obsLink" class="linkbox"></div>
             <div class="row">
-              <button id="copyObsLink" type="button">Copy OBS Link</button>
+              <button id="copyObsLink" type="button">Copy OBS URL</button>
             </div>
           </div>
         </section>

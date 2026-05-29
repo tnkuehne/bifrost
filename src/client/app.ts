@@ -75,7 +75,7 @@ async function init(): Promise<void> {
   document.body.classList.toggle("obs", mode === "obs");
   document.body.classList.toggle("camera", mode === "camera");
   els.title.textContent =
-    mode === "camera" ? "iPhone Camera" : mode === "obs" ? "OBS Receiver" : "Ubuntu Receiver";
+    mode === "camera" ? "Camera" : mode === "obs" ? "OBS Receiver" : "Receiver";
   els.receiverPanel.classList.toggle("hidden", mode === "camera");
   els.cameraPanel.classList.toggle("hidden", mode !== "camera");
   els.receiverFrame.classList.toggle("hidden", mode === "camera");
@@ -444,7 +444,7 @@ async function startCamera(): Promise<MediaStream> {
   updateCameraControls();
   renderCameraFormat(getVideoSettings(), "Safari returned");
   sendCameraMeta();
-  setStatus("good", "Camera ready", "Waiting for the Ubuntu receiver.");
+  setStatus("good", "Camera ready", "Waiting for the receiver.");
   log("Camera permission granted.");
   return stream;
 }

@@ -4,6 +4,8 @@ import type { AppState, CameraSettingsMessage, Mode, StatusKind } from "./types"
 import { errorMessage, round } from "./utils";
 
 export function createUi(state: AppState, mode: Mode) {
+  let copyResetTimer = 0;
+
   function renderCameraFormat(
     settings: CameraSettingsMessage | null | undefined,
     prefix: string,
@@ -72,11 +74,21 @@ export function createUi(state: AppState, mode: Mode) {
     if (!text) {
       return;
     }
+    els.copyObsLink.disabled = true;
+    els.copyObsLink.textContent = "Copying...";
     try {
       await navigator.clipboard.writeText(text);
+      els.copyObsLink.textContent = "Copied";
       log("Link copied.");
     } catch {
+      els.copyObsLink.textContent = "Copy failed";
       log("Copy failed. Select the link text manually.");
+    } finally {
+      window.clearTimeout(copyResetTimer);
+      copyResetTimer = window.setTimeout(() => {
+        els.copyObsLink.disabled = false;
+        els.copyObsLink.textContent = "Copy OBS URL";
+      }, 1200);
     }
   }
 
