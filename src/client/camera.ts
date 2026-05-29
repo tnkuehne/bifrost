@@ -1,12 +1,11 @@
-import type { CameraSettingsMessage } from "./types";
+import type { CameraQuality, CameraSettingsMessage } from "./types";
 
-export const CAMERA_CONSTRAINTS: MediaStreamConstraints = {
-  audio: false,
-  video: {
-    width: { ideal: 3840 },
-    height: { ideal: 2160 },
-    frameRate: { ideal: 30 },
-  },
+const VIDEO_QUALITY: Record<
+  CameraQuality,
+  { width: number; height: number; label: string; shortLabel: string }
+> = {
+  "4k": { width: 3840, height: 2160, label: "4K ideal, 30 fps", shortLabel: "4K" },
+  fullhd: { width: 1920, height: 1080, label: "Full HD ideal, 30 fps", shortLabel: "HD" },
 };
 
 export type CameraSettingsSnapshot = {
@@ -19,14 +18,28 @@ export type SenderTuningResult = {
   maxBitrate: number;
 };
 
-export function getCameraConstraints(facingMode: "environment" | "user"): MediaStreamConstraints {
+export function getCameraConstraints(
+  facingMode: "environment" | "user",
+  quality: CameraQuality,
+): MediaStreamConstraints {
+  const preset = VIDEO_QUALITY[quality];
   return {
-    ...CAMERA_CONSTRAINTS,
+    audio: false,
     video: {
-      ...(CAMERA_CONSTRAINTS.video as MediaTrackConstraints),
+      width: { ideal: preset.width },
+      height: { ideal: preset.height },
+      frameRate: { ideal: 30 },
       facingMode: { ideal: facingMode },
     },
   };
+}
+
+export function getQualityLabel(quality: CameraQuality): string {
+  return VIDEO_QUALITY[quality].label;
+}
+
+export function getQualityShortLabel(quality: CameraQuality): string {
+  return VIDEO_QUALITY[quality].shortLabel;
 }
 
 export function getVideoSettings(stream: MediaStream | null): CameraSettingsSnapshot {

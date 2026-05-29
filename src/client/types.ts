@@ -1,6 +1,7 @@
 export type Mode = "receiver" | "camera" | "obs";
 export type Role = "receiver" | "camera";
 export type StatusKind = "waiting" | "good" | "bad";
+export type CameraQuality = "4k" | "fullhd";
 
 export interface RoomResponse {
   room: string;

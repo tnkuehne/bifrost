@@ -33,6 +33,8 @@
       setRemoteVideo={session.setRemoteVideo}
       setLocalVideo={session.setLocalVideo}
       onSwitchCamera={session.switchCameraFromUi}
+      onToggleQuality={session.toggleQualityFromUi}
+      qualityLabel={session.qualityLabel}
     />
   {/snippet}
 
@@ -105,6 +107,7 @@
         mode={session.mode}
         role={session.role}
         iceServersCount={session.iceServersCount}
+        requestedFormat={session.requestedFormat}
         cameraFormat={session.cameraFormat}
         senderFormat={session.senderFormat}
         trackState={session.trackState}

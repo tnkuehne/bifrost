@@ -1,7 +1,9 @@
-import type { CameraSettingsMessage } from "./types";
+import type { CameraQuality, CameraSettingsMessage } from "./types";
 import { errorMessage, round } from "./utils";
 import {
   getCameraConstraints,
+  getQualityLabel,
+  getQualityShortLabel,
   getVideoSettings as readVideoSettings,
   tuneVideoSender as applyVideoSenderTuning,
 } from "./camera";
@@ -16,6 +18,7 @@ export function createLocalCamera(callbacks: LocalCameraCallbacks) {
   let video: HTMLVideoElement | null = null;
   let stream = $state<MediaStream | null>(null);
   let facingMode: "environment" | "user" = "environment";
+  let quality = $state<CameraQuality>("4k");
   let summary = $state("Waiting");
   let format = $state("Waiting");
   let senderFormat = $state("Balanced adaptive");
@@ -29,7 +32,9 @@ export function createLocalCamera(callbacks: LocalCameraCallbacks) {
       throw new Error("This browser does not support camera capture.");
     }
 
-    const nextStream = await navigator.mediaDevices.getUserMedia(getCameraConstraints(facingMode));
+    const nextStream = await navigator.mediaDevices.getUserMedia(
+      getCameraConstraints(facingMode, quality),
+    );
     stream = nextStream;
     attachPreview();
     publishSettings("Browser returned");
@@ -50,6 +55,13 @@ export function createLocalCamera(callbacks: LocalCameraCallbacks) {
 
   async function switchCamera(sender: RTCRtpSender | null | undefined): Promise<void> {
     facingMode = facingMode === "environment" ? "user" : "environment";
+    stop();
+    const nextStream = await start();
+    await replaceSenderTrack(sender, nextStream);
+  }
+
+  async function toggleQuality(sender: RTCRtpSender | null | undefined): Promise<void> {
+    quality = quality === "4k" ? "fullhd" : "4k";
     stop();
     const nextStream = await start();
     await replaceSenderTrack(sender, nextStream);
@@ -138,12 +150,19 @@ export function createLocalCamera(callbacks: LocalCameraCallbacks) {
     get senderFormat() {
       return senderFormat;
     },
+    get requestedFormat() {
+      return getQualityLabel(quality);
+    },
+    get qualityLabel() {
+      return getQualityShortLabel(quality);
+    },
     get trackState() {
       return trackState;
     },
     start,
     refreshForOrientation,
     switchCamera,
+    toggleQuality,
     tuneSender,
     publishSettings,
     renderSettings,

@@ -13,6 +13,8 @@
     setRemoteVideo?: (node: HTMLVideoElement) => void;
     setLocalVideo?: (node: HTMLVideoElement) => void;
     onSwitchCamera?: () => void;
+    onToggleQuality?: () => void;
+    qualityLabel?: string;
   };
 
   let {
@@ -23,6 +25,8 @@
     setRemoteVideo = () => {},
     setLocalVideo = () => {},
     onSwitchCamera = () => {},
+    onToggleQuality = () => {},
+    qualityLabel = "4K",
   }: Props = $props();
 </script>
 
@@ -60,6 +64,15 @@
       >
         <img class="size-5 invert" src={switchCameraUrl} alt="" aria-hidden="true" />
       </button>
+      <button
+        class="absolute bottom-3 left-3 grid h-11 min-w-11 cursor-pointer place-items-center rounded-full bg-black/35 px-3 text-sm font-semibold text-white shadow-panel backdrop-blur-md transition hover:bg-black/50 active:scale-95"
+        type="button"
+        aria-label="Switch video quality"
+        title="Switch video quality"
+        onclick={onToggleQuality}
+      >
+        {qualityLabel}
+      </button>
     {/if}
   </section>
 {:else if mode === "camera"}
@@ -80,6 +93,15 @@
         onclick={onSwitchCamera}
       >
         <img class="size-5 invert" src={switchCameraUrl} alt="" aria-hidden="true" />
+      </button>
+      <button
+        class="absolute bottom-5 left-5 grid h-12 min-w-12 cursor-pointer place-items-center rounded-full bg-black/35 px-3 text-sm font-semibold text-white shadow-panel backdrop-blur-md transition hover:bg-black/50 active:scale-95"
+        type="button"
+        aria-label="Switch video quality"
+        title="Switch video quality"
+        onclick={onToggleQuality}
+      >
+        {qualityLabel}
       </button>
     {/if}
   </section>

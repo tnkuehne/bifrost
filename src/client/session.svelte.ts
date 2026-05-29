@@ -416,6 +416,12 @@ export function createWebcamSession() {
     refreshCameraStatus();
   }
 
+  async function toggleQuality(): Promise<void> {
+    const sender = pc?.getSenders().find((item) => item.track?.kind === "video");
+    await localCamera.toggleQuality(sender);
+    refreshCameraStatus();
+  }
+
   function refreshCameraStatus(): void {
     if (mode !== "camera") {
       return;
@@ -503,6 +509,10 @@ export function createWebcamSession() {
     switchCamera().catch((error) => fail(errorMessage(error)));
   }
 
+  function toggleQualityFromUi(): void {
+    toggleQuality().catch((error) => fail(errorMessage(error)));
+  }
+
   return {
     get mode() {
       return mode;
@@ -564,6 +574,12 @@ export function createWebcamSession() {
     get cameraFormat() {
       return localCamera.format;
     },
+    get requestedFormat() {
+      return localCamera.requestedFormat;
+    },
+    get qualityLabel() {
+      return localCamera.qualityLabel;
+    },
     get senderFormat() {
       return localCamera.senderFormat;
     },
@@ -592,5 +608,6 @@ export function createWebcamSession() {
     setLocalVideo,
     startCameraFromUi,
     switchCameraFromUi,
+    toggleQualityFromUi,
   };
 }

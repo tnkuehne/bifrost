@@ -7,6 +7,7 @@
     mode: Mode;
     role: Role;
     iceServersCount: number;
+    requestedFormat: string;
     cameraFormat: string;
     senderFormat: string;
     trackState: string;
@@ -20,6 +21,7 @@
     mode,
     role,
     iceServersCount,
+    requestedFormat,
     cameraFormat,
     senderFormat,
     trackState,
@@ -41,7 +43,7 @@
     <span class={labelClass}>Page role</span><strong>{mode} ({role})</strong>
   </div>
   <div class={rowClass}>
-    <span class={labelClass}>Requested</span><span>4K ideal, 30 fps</span>
+    <span class={labelClass}>Requested</span><span>{requestedFormat}</span>
   </div>
   <div class={rowClass}>
     <span class={labelClass}>Returned</span><strong>{cameraFormat}</strong>
