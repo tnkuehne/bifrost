@@ -8,7 +8,7 @@ The iPhone opens a Safari camera page. Ubuntu opens a receiver page, or the clea
 
 - Stream iPhone camera video to Ubuntu with WebRTC.
 - Keep media local and peer-to-peer over the LAN or USB-tethered network.
-- Use Cloudflare Workers only for hosting, pairing, QR generation, and WebRTC signaling.
+- Use Cloudflare Workers only for hosting, room creation, and WebRTC signaling.
 - Provide an OBS-friendly `/obs` mode that renders only the video.
 - Show actual camera and receiver properties instead of assuming fixed limits.
 - Make direct-path verification visible through ICE candidate and WebRTC stats.
@@ -24,19 +24,22 @@ The iPhone opens a Safari camera page. Ubuntu opens a receiver page, or the clea
 
 ## Design
 
-- `public/index.html` is a single browser app with receiver, camera, and OBS modes.
-- `src/index.ts` is a Cloudflare Worker that serves app routes, creates rooms, generates QR codes, and upgrades signaling WebSockets.
+- `src/client/index.html` is the Vite browser shell with receiver, camera, and OBS modes.
+- `src/client/` contains the Vite-built browser modules, including client-side QR generation.
+- `src/index.ts` is a Cloudflare Worker that serves app routes, creates rooms, applies native rate limits, and upgrades signaling WebSockets.
 - `SignalingRoom` is a Durable Object keyed by room id. It forwards only SDP/ICE JSON between one active receiver and one camera.
-- `/obs` has receiver priority. `/receiver` can preview the stream while OBS is absent, then stays available for pairing/status when OBS connects.
+- `/obs` has receiver priority. `/` can preview the stream while OBS is absent, then stays available for pairing/status when OBS connects.
 - WebRTC is configured with `iceServers: []`. There is no STUN or TURN configuration.
 - ICE candidates with relay or server-reflexive candidate types are rejected.
 - The camera requests 4K/30 as an ideal constraint, then reports the actual Safari track settings.
 - Sender tuning uses balanced adaptation so WebRTC can lower quality temporarily instead of building latency during short network dips.
 - The receiver reports incoming resolution/FPS, selected candidate path, inbound RTP stats, video element state, and a sampled rendered frame.
+- QR codes are generated in the browser, so there is no public QR-generation Worker endpoint.
 
 ## Usage
 
 ```sh
+pnpm run build
 pnpm run dev
 ```
 
@@ -44,9 +47,9 @@ For iPhone Safari camera access during local development, use Wrangler's quick t
 
 Open:
 
-- `/receiver` on Ubuntu to create a room, show the iPhone QR/link, and preview the stream while OBS is absent.
-- `/camera?mode=camera&room=...` on iPhone Safari.
-- `/obs?mode=obs&room=...` in OBS Browser Source for the clean video-only receiver. When OBS connects, it becomes the active receiver without requiring the `/receiver` page to close.
+- `/` on Ubuntu to create a room, show the iPhone QR code, and preview the stream while OBS is absent.
+- `/camera?room=...` on iPhone Safari.
+- `/obs?room=...` in OBS Browser Source for the clean video-only receiver. When OBS connects, it becomes the active receiver without requiring the `/` page to close.
 
 ## Quality
 

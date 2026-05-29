@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import QRCode from "qrcode";
+import { Hono } from "hono";
 
 type Role = "receiver" | "camera";
 type ClientMode = "camera" | "preview" | "obs";
@@ -8,6 +8,7 @@ interface ConnectionState {
   role: Role;
   clientMode: ClientMode;
   active: boolean;
+  room: string;
   connectedAt: number;
   replacing?: boolean;
 }
@@ -19,16 +20,6 @@ interface SignalEnvelope {
 
 const ROOM_PATTERN = /^[A-Za-z0-9_-]{22,64}$/;
 const ROLES = new Set<Role>(["receiver", "camera"]);
-
-function json(data: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(data), {
-    ...init,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      ...init.headers,
-    },
-  });
-}
 
 async function serveApp(request: Request, env: Env): Promise<Response> {
   const response = await env.ASSETS.fetch(
@@ -50,6 +41,24 @@ function makeRoomId(): string {
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 
+function clientRateKey(request: Request): string {
+  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return request.headers.get("cf-connecting-ip") || forwardedFor || "local";
+}
+
+async function rateLimit(limiter: RateLimit, key: string): Promise<Response | null> {
+  const outcome = await limiter.limit({ key });
+  return outcome.success
+    ? null
+    : new Response("Too many requests", {
+        status: 429,
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          "retry-after": "60",
+        },
+      });
+}
+
 function isRole(value: string | null): value is Role {
   return value !== null && ROLES.has(value as Role);
 }
@@ -63,12 +72,17 @@ function setState(ws: WebSocket, state: ConnectionState): void {
 }
 
 export class SignalingRoom extends DurableObject<Env> {
-  async fetch(request: Request): Promise<Response> {
+  override async fetch(request: Request): Promise<Response> {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected WebSocket upgrade", { status: 426 });
     }
 
     const url = new URL(request.url);
+    const room = url.searchParams.get("room");
+    if (!room || !ROOM_PATTERN.test(room)) {
+      return new Response("Invalid room", { status: 400 });
+    }
+
     const role = url.searchParams.get("role");
     if (!isRole(role)) {
       return new Response("Invalid role", { status: 400 });
@@ -78,12 +92,14 @@ export class SignalingRoom extends DurableObject<Env> {
     const active = this.prepareForJoin(role, clientMode);
 
     const pair = new WebSocketPair();
-    const [client, server] = Object.values(pair);
+    const client = pair[0];
+    const server = pair[1];
     this.ctx.acceptWebSocket(server);
     setState(server, {
       role,
       clientMode,
       active,
+      room,
       connectedAt: Date.now(),
     });
 
@@ -91,8 +107,8 @@ export class SignalingRoom extends DurableObject<Env> {
       type: "joined",
       role,
       clientMode,
-      receiverActive: role === "receiver" ? active : undefined,
       peers: this.connectedRoles(),
+      ...(role === "receiver" ? { receiverActive: active } : {}),
     });
     if (active) {
       this.broadcast(server, {
@@ -106,7 +122,7 @@ export class SignalingRoom extends DurableObject<Env> {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+  override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     const state = getState(ws);
     if (!state || typeof message !== "string") {
       return;
@@ -125,6 +141,13 @@ export class SignalingRoom extends DurableObject<Env> {
       return;
     }
 
+    const rateLimitResponse = await rateLimit(this.env.SIGNAL_MESSAGE_RATE_LIMITER, state.room);
+    if (rateLimitResponse) {
+      this.send(ws, { type: "error", message: "Signaling rate limit exceeded" });
+      ws.close(1013, "Signaling rate limit exceeded");
+      return;
+    }
+
     if (state.role === "receiver" && !state.active) {
       return;
     }
@@ -136,7 +159,7 @@ export class SignalingRoom extends DurableObject<Env> {
     });
   }
 
-  async webSocketClose(ws: WebSocket, _code: number, _reason: string): Promise<void> {
+  override async webSocketClose(ws: WebSocket, _code: number, _reason: string): Promise<void> {
     const state = getState(ws);
     if (!state || state.replacing) {
       return;
@@ -318,64 +341,52 @@ export class SignalingRoom extends DurableObject<Env> {
   }
 }
 
-export default {
-  async fetch(request, env): Promise<Response> {
-    const url = new URL(request.url);
+const app = new Hono<{ Bindings: Env }>();
 
-    if (url.pathname === "/api/room") {
-      const room = makeRoomId();
-      return json({
-        room,
-        receiverUrl: `${url.origin}/receiver?mode=receiver&room=${room}`,
-        cameraUrl: `${url.origin}/camera?mode=camera&room=${room}`,
-        obsUrl: `${url.origin}/obs?mode=obs&room=${room}`,
-      });
-    }
+app.post("/api/rooms", async (c) => {
+  const rateLimitResponse = await rateLimit(c.env.ROOM_RATE_LIMITER, clientRateKey(c.req.raw));
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
 
-    if (url.pathname === "/api/qr") {
-      const data = url.searchParams.get("data");
-      if (!data || data.length > 512) {
-        return new Response("Invalid QR data", { status: 400 });
-      }
+  const url = new URL(c.req.url);
+  const room = makeRoomId();
+  return c.json({
+    room,
+    receiverUrl: `${url.origin}/?room=${room}`,
+    cameraUrl: `${url.origin}/camera?room=${room}`,
+    obsUrl: `${url.origin}/obs?room=${room}`,
+  });
+});
 
-      const svg = await QRCode.toString(data, {
-        type: "svg",
-        errorCorrectionLevel: "M",
-        margin: 2,
-        color: {
-          dark: "#07100d",
-          light: "#ffffff",
-        },
-      });
-      return new Response(svg, {
-        headers: {
-          "cache-control": "no-store",
-          "content-type": "image/svg+xml; charset=utf-8",
-        },
-      });
-    }
+app.get("/api/rooms/:room/:role", async (c) => {
+  if (c.req.header("Upgrade") !== "websocket") {
+    return c.text("Expected WebSocket upgrade", 426);
+  }
 
-    if (url.pathname.startsWith("/ws/")) {
-      if (request.headers.get("Upgrade") !== "websocket") {
-        return new Response("Expected WebSocket upgrade", { status: 426 });
-      }
+  const room = c.req.param("room");
+  const role = c.req.param("role");
+  if (!ROOM_PATTERN.test(room) || !isRole(role)) {
+    return c.text("Invalid signaling URL", 400);
+  }
 
-      const [, , room, role] = url.pathname.split("/");
-      if (!ROOM_PATTERN.test(room ?? "") || !isRole(role ?? null)) {
-        return new Response("Invalid signaling URL", { status: 400 });
-      }
+  const rateLimitResponse = await rateLimit(c.env.SIGNALING_RATE_LIMITER, clientRateKey(c.req.raw));
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
 
-      const id = env.SIGNALING_ROOM.idFromName(room);
-      const stub = env.SIGNALING_ROOM.get(id);
-      const roomUrl = new URL(request.url);
-      roomUrl.searchParams.set("role", role);
-      return stub.fetch(new Request(roomUrl, request));
-    }
+  const id = c.env.SIGNALING_ROOM.idFromName(room);
+  const stub = c.env.SIGNALING_ROOM.get(id);
+  const roomUrl = new URL(c.req.url);
+  roomUrl.searchParams.set("room", room);
+  roomUrl.searchParams.set("role", role);
+  return stub.fetch(new Request(roomUrl, c.req.raw));
+});
 
-    if (["/", "/receiver", "/camera", "/obs"].includes(url.pathname)) {
-      return serveApp(request, env);
-    }
+app.all("/api/*", (c) => c.text("Not found", 404));
 
-    return env.ASSETS.fetch(request);
-  },
-} satisfies ExportedHandler<Env>;
+app.get("/assets/*", (c) => c.env.ASSETS.fetch(c.req.raw));
+
+app.get("*", (c) => serveApp(c.req.raw, c.env));
+
+export default app;
