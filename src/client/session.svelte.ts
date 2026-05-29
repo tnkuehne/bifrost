@@ -47,7 +47,6 @@ export function createWebcamSession() {
   let obsUrl = $state("");
   let copyLabel = $state("Copy OBS URL");
   let copyDisabled = $state(false);
-  let copyResetTimer = 0;
 
   let cameraSummary = $state("Waiting");
   let incomingSummary = $state("Waiting");
@@ -95,6 +94,10 @@ export function createWebcamSession() {
       void pollSelectedPath();
     },
   });
+  const resetCopyState = useDebounce(() => {
+    copyDisabled = false;
+    copyLabel = "Copy OBS URL";
+  }, 1200);
 
   useEventListener(
     document,
@@ -114,7 +117,7 @@ export function createWebcamSession() {
     closePeerConnection();
     ws?.close();
     stream?.getTracks().forEach((track) => track.stop());
-    window.clearTimeout(copyResetTimer);
+    resetCopyState.cancel();
   });
 
   function mount(): () => void {
@@ -603,11 +606,7 @@ export function createWebcamSession() {
       copyLabel = "Copy failed";
       log("Copy failed. Select the link text manually.");
     } finally {
-      window.clearTimeout(copyResetTimer);
-      copyResetTimer = window.setTimeout(() => {
-        copyDisabled = false;
-        copyLabel = "Copy OBS URL";
-      }, 1200);
+      void resetCopyState();
     }
   }
 
