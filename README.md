@@ -46,3 +46,12 @@ Open:
 - `/receiver` on Ubuntu to create a room and show the iPhone QR/link.
 - `/camera?mode=camera&room=...` on iPhone Safari.
 - `/obs?mode=obs&room=...` in OBS Browser Source for the clean video-only receiver.
+
+## Quality
+
+```sh
+pnpm run check
+pnpm run lint
+pnpm run format
+pnpm run format:check
+```
