@@ -86,14 +86,9 @@
         senderFormat={session.senderFormat}
         trackState={session.trackState}
         incomingFormat={session.incomingFormat}
-        videoElementState={session.videoElementState}
-        frameSample={session.frameSample}
         inboundStats={session.inboundStats}
         selectedPath={session.selectedPath}
-        localCandidate={session.localCandidate}
-        remoteCandidate={session.remoteCandidate}
         relayState={session.relayState}
-        events={session.events}
       />
     {/if}
   {/snippet}

@@ -5,7 +5,7 @@ import type {
   StatsReport,
   TransportReport,
 } from "./types";
-import { errorMessage, round } from "./utils";
+import { round } from "./utils";
 
 export type IncomingFormat = {
   format: string;
@@ -18,6 +18,7 @@ export type PathDiagnostics = {
   pathSummary?: string;
   localCandidate?: string;
   remoteCandidate?: string;
+  videoStats?: string;
   relayState?: string;
   relayDetected: boolean;
 };
@@ -47,45 +48,6 @@ export function getVideoElementState(remoteVideo: HTMLVideoElement | null): stri
       ? `${remoteVideo.clientWidth} x ${remoteVideo.clientHeight} CSS`
       : "no layout box";
   return `${ready}, ${remoteVideo.paused ? "paused" : "playing"}, ${size}`;
-}
-
-export function sampleVideoFrame(remoteVideo: HTMLVideoElement): string {
-  const canvas = document.createElement("canvas");
-  const width = 32;
-  const height = 32;
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) {
-    return "Canvas unavailable";
-  }
-
-  try {
-    context.drawImage(remoteVideo, 0, 0, width, height);
-    const pixels = context.getImageData(0, 0, width, height).data;
-    let lumaTotal = 0;
-    let redTotal = 0;
-    let greenTotal = 0;
-    let blueTotal = 0;
-    for (let index = 0; index < pixels.length; index += 4) {
-      const red = pixels[index] ?? 0;
-      const green = pixels[index + 1] ?? 0;
-      const blue = pixels[index + 2] ?? 0;
-      redTotal += red;
-      greenTotal += green;
-      blueTotal += blue;
-      lumaTotal += 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-    }
-    const count = pixels.length / 4;
-    const luma = lumaTotal / count;
-    const red = redTotal / count;
-    const green = greenTotal / count;
-    const blue = blueTotal / count;
-    const verdict = luma < 3 ? "black pixels" : "non-black pixels";
-    return `${verdict}, luma ${round(luma)}, rgb ${round(red)}/${round(green)}/${round(blue)}`;
-  } catch (error) {
-    return `Canvas sample failed: ${errorMessage(error)}`;
-  }
 }
 
 export async function readPathDiagnostics(
@@ -135,7 +97,8 @@ export async function readPathDiagnostics(
     const decoded = inboundVideo.framesDecoded ?? "?";
     const dropped = inboundVideo.framesDropped ?? "?";
     const freezes = inboundVideo.freezeCount ?? 0;
-    result.inboundStats = `${width} x ${height}, ${fps}, decoded ${decoded}, dropped ${dropped}, freezes ${freezes}`;
+    result.inboundStats = `${width} x ${height}, ${fps}`;
+    result.videoStats = `decoded ${decoded}, dropped ${dropped}, freezes ${freezes}`;
   }
 
   if (!selectedPair) {

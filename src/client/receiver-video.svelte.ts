@@ -2,7 +2,6 @@ import {
   getIncomingFormat,
   getVideoElementState,
   readPathDiagnostics,
-  sampleVideoFrame,
 } from "./receiver-diagnostics";
 import { errorMessage } from "./utils";
 
@@ -16,17 +15,12 @@ export function createReceiverVideo(callbacks: ReceiverVideoCallbacks) {
   let stream: MediaStream | null = null;
   let incomingFrames = 0;
   let lastIncomingAt = 0;
-  let lastFrameSampleAt = 0;
 
   let incomingSummary = $state("Waiting");
   let pathSummary = $state("Local direct only");
   let incomingFormat = $state("Waiting");
-  let videoElementState = $state("Waiting");
-  let frameSample = $state("Waiting");
   let inboundStats = $state("Waiting");
   let selectedPath = $state("Waiting");
-  let localCandidate = $state("Waiting");
-  let remoteCandidate = $state("Waiting");
   let relayState = $state("Blocked by configuration");
 
   function setVideo(node: HTMLVideoElement): void {
@@ -56,7 +50,6 @@ export function createReceiverVideo(callbacks: ReceiverVideoCallbacks) {
     }
     incomingFrames = 0;
     lastIncomingAt = 0;
-    lastFrameSampleAt = 0;
   }
 
   function trackIncomingVideo(): void {
@@ -94,7 +87,6 @@ export function createReceiverVideo(callbacks: ReceiverVideoCallbacks) {
         lastIncomingAt = now;
         updateIncomingFormat(fps);
         updateElementState();
-        sampleRemoteFrame(now);
       }
       video?.requestVideoFrameCallback(onFrame);
     };
@@ -119,7 +111,6 @@ export function createReceiverVideo(callbacks: ReceiverVideoCallbacks) {
       })
       .catch((error: unknown) => {
         callbacks.onLog(`Video play blocked (${reason}): ${errorMessage(error)}`);
-        videoElementState = "play blocked; click receiver page once";
       });
   }
 
@@ -134,30 +125,19 @@ export function createReceiverVideo(callbacks: ReceiverVideoCallbacks) {
     if (diagnostics.pathSummary) {
       pathSummary = diagnostics.pathSummary;
     }
-    if (diagnostics.localCandidate) {
-      localCandidate = diagnostics.localCandidate;
-    }
-    if (diagnostics.remoteCandidate) {
-      remoteCandidate = diagnostics.remoteCandidate;
-    }
     if (diagnostics.relayState) {
       relayState = diagnostics.relayState;
     }
+    callbacks.onLog(
+      `Path details: local=${diagnostics.localCandidate || "unknown"}, remote=${diagnostics.remoteCandidate || "unknown"}, video=${diagnostics.videoStats || "unknown"}`,
+    );
     if (diagnostics.relayDetected) {
       callbacks.onRelayDetected();
     }
   }
 
   function updateElementState(): void {
-    videoElementState = getVideoElementState(video);
-  }
-
-  function sampleRemoteFrame(now = performance.now()): void {
-    if (now - lastFrameSampleAt < 1000 || !video?.videoWidth || !video.videoHeight) {
-      return;
-    }
-    lastFrameSampleAt = now;
-    frameSample = sampleVideoFrame(video);
+    callbacks.onLog(`Video element: ${getVideoElementState(video)}`);
   }
 
   return {
@@ -170,23 +150,11 @@ export function createReceiverVideo(callbacks: ReceiverVideoCallbacks) {
     get incomingFormat() {
       return incomingFormat;
     },
-    get videoElementState() {
-      return videoElementState;
-    },
-    get frameSample() {
-      return frameSample;
-    },
     get inboundStats() {
       return inboundStats;
     },
     get selectedPath() {
       return selectedPath;
-    },
-    get localCandidate() {
-      return localCandidate;
-    },
-    get remoteCandidate() {
-      return remoteCandidate;
     },
     get relayState() {
       return relayState;

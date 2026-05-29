@@ -11,14 +11,9 @@
     senderFormat: string;
     trackState: string;
     incomingFormat: string;
-    videoElementState: string;
-    frameSample: string;
     inboundStats: string;
     selectedPath: string;
-    localCandidate: string;
-    remoteCandidate: string;
     relayState: string;
-    events: string[];
   };
 
   let {
@@ -29,14 +24,9 @@
     senderFormat,
     trackState,
     incomingFormat,
-    videoElementState,
-    frameSample,
     inboundStats,
     selectedPath,
-    localCandidate,
-    remoteCandidate,
     relayState,
-    events,
   }: Props = $props();
 
   const headingClass = "mt-6 text-sm uppercase tracking-normal text-muted";
@@ -66,12 +56,6 @@
     <span class={labelClass}>Incoming</span><span>{incomingFormat}</span>
   </div>
   <div class={rowClass}>
-    <span class={labelClass}>Video element</span><span>{videoElementState}</span>
-  </div>
-  <div class={rowClass}>
-    <span class={labelClass}>Frame sample</span><span>{frameSample}</span>
-  </div>
-  <div class={rowClass}>
     <span class={labelClass}>Inbound RTP</span><span>{inboundStats}</span>
   </div>
 </section>
@@ -85,21 +69,6 @@
     <span class={labelClass}>Selected path</span><span>{selectedPath}</span>
   </div>
   <div class={rowClass}>
-    <span class={labelClass}>Local candidate</span><span>{localCandidate}</span>
-  </div>
-  <div class={rowClass}>
-    <span class={labelClass}>Remote candidate</span><span>{remoteCandidate}</span>
-  </div>
-  <div class={rowClass}>
     <span class={labelClass}>Relay use</span><strong>{relayState}</strong>
-  </div>
-</section>
-
-<section>
-  <h2 class={headingClass}>Events</h2>
-  <div class="mt-2.5 grid gap-1.5 text-[13px] text-muted">
-    {#each events as event}
-      <div class="border-l-2 border-line pl-2">{event}</div>
-    {/each}
   </div>
 </section>

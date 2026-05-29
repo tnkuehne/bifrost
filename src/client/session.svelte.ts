@@ -25,8 +25,6 @@ export function createWebcamSession() {
   let statusTitle = $state("Starting");
   let statusDetail = $state("");
 
-  let events = $state<string[]>([]);
-
   const receiverVideo = createReceiverVideo({
     onRelayDetected: () => {
       fail("A relay candidate was selected. Closing instead of carrying media through a relay.");
@@ -469,7 +467,9 @@ export function createWebcamSession() {
   }
 
   function log(message: string): void {
-    events = [`${new Date().toLocaleTimeString()} ${message}`, ...events].slice(0, 8);
+    if (debug) {
+      console.debug(`[webcam] ${message}`);
+    }
   }
 
   function setRemoteVideo(node: HTMLVideoElement): void {
@@ -558,29 +558,14 @@ export function createWebcamSession() {
     get incomingFormat() {
       return receiverVideo.incomingFormat;
     },
-    get videoElementState() {
-      return receiverVideo.videoElementState;
-    },
-    get frameSample() {
-      return receiverVideo.frameSample;
-    },
     get inboundStats() {
       return receiverVideo.inboundStats;
     },
     get selectedPath() {
       return receiverVideo.selectedPath;
     },
-    get localCandidate() {
-      return receiverVideo.localCandidate;
-    },
-    get remoteCandidate() {
-      return receiverVideo.remoteCandidate;
-    },
     get relayState() {
       return receiverVideo.relayState;
-    },
-    get events() {
-      return events;
     },
     get iceServersCount() {
       return 0;
