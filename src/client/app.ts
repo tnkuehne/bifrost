@@ -95,7 +95,7 @@ async function init(): Promise<void> {
   }
 
   if (!state.room) {
-    fail("Missing room. Open the receiver page first and use its iPhone or OBS link.");
+    fail("Missing room. Open the receiver page first and use its phone or OBS link.");
     return;
   }
 
@@ -104,13 +104,21 @@ async function init(): Promise<void> {
 
   if (mode === "camera") {
     watchCameraOrientation();
-    setStatus("waiting", "Camera permission", "Safari should ask for camera access.");
+    setStatus("waiting", "Camera permission", "Your browser should ask for camera access.");
     startCamera().catch((error: unknown) => {
       log(`Auto-start did not complete: ${errorMessage(error)}`);
-      setStatus("waiting", "Tap Start Camera", "iOS may require a tap before camera access.");
+      setStatus(
+        "waiting",
+        "Tap Start Camera",
+        "Your browser may require a tap before camera access.",
+      );
     });
   } else {
-    setStatus("waiting", "Waiting for iPhone", "Open the iPhone link on the same local network.");
+    setStatus(
+      "waiting",
+      "Waiting for phone",
+      "Open the phone camera link on the same local network.",
+    );
   }
 }
 
@@ -229,7 +237,7 @@ async function handleSignal(message: SignalMessage): Promise<void> {
     setStatus(
       "waiting",
       "Receiver preview active",
-      "OBS is not connected, so this page can show the iPhone video.",
+      "OBS is not connected, so this page can show the phone video.",
     );
     log("Receiver preview became active.");
     if (message.peers?.includes("camera")) {
@@ -256,7 +264,7 @@ async function handleSignal(message: SignalMessage): Promise<void> {
       return;
     }
     resetPeerConnection();
-    setStatus("waiting", "Peer disconnected", "Reconnect the iPhone page to resume.");
+    setStatus("waiting", "Peer disconnected", "Reconnect the phone camera page to resume.");
     return;
   }
 
@@ -285,7 +293,7 @@ async function handleSignal(message: SignalMessage): Promise<void> {
   }
 
   if (message.type === "camera-meta") {
-    renderCameraFormat(message.settings, "Safari returned");
+    renderCameraFormat(message.settings, "Browser returned");
     return;
   }
 
@@ -365,7 +373,7 @@ async function startReceiverOffer(): Promise<void> {
     return;
   }
   sendSignal({ type: "offer", description: pc.localDescription });
-  setStatus("waiting", "Offer sent", "Waiting for iPhone camera answer.");
+  setStatus("waiting", "Offer sent", "Waiting for phone camera answer.");
   log("Receiver offer sent.");
 }
 
@@ -442,7 +450,7 @@ async function startCamera(): Promise<MediaStream> {
   localVideo.srcObject = stream;
   state.startedCamera = true;
   updateCameraControls();
-  renderCameraFormat(getVideoSettings(), "Safari returned");
+  renderCameraFormat(getVideoSettings(), "Browser returned");
   sendCameraMeta();
   setStatus("good", "Camera ready", "Waiting for the receiver.");
   log("Camera permission granted.");

@@ -1,12 +1,12 @@
 # Local WebRTC Webcam
 
-Use an iPhone as an OBS webcam source on Ubuntu without a native iOS app or a media relay.
+Use a phone as an OBS webcam source without a native phone app or a media relay.
 
-The iPhone opens a Safari camera page. Ubuntu opens a receiver page, or the clean OBS page in an OBS Browser Source. OBS Virtual Camera can then expose that source to video-call apps.
+The phone opens a browser camera page. The computer opens a receiver page, or the clean OBS page in an OBS Browser Source. OBS Virtual Camera can then expose that source to video-call apps.
 
 ## Goals
 
-- Stream iPhone camera video to Ubuntu with WebRTC.
+- Stream phone camera video to a computer with WebRTC.
 - Keep media local and peer-to-peer over the LAN or USB-tethered network.
 - Use Cloudflare Workers only for hosting, room creation, and WebRTC signaling.
 - Provide an OBS-friendly `/obs` mode that renders only the video.
@@ -16,7 +16,7 @@ The iPhone opens a Safari camera page. Ubuntu opens a receiver page, or the clea
 
 ## Non-goals
 
-- No native iOS app.
+- No native iOS or Android app.
 - No DroidCam, Iriun, Camo, or other webcam app dependency.
 - No multi-viewer broadcast mode.
 - No remote internet streaming of camera media.
@@ -31,7 +31,7 @@ The iPhone opens a Safari camera page. Ubuntu opens a receiver page, or the clea
 - `/obs` has receiver priority. `/` can preview the stream while OBS is absent, then stays available for pairing/status when OBS connects.
 - WebRTC is configured with `iceServers: []`. There is no STUN or TURN configuration.
 - ICE candidates with relay or server-reflexive candidate types are rejected.
-- The camera requests 4K/30 as an ideal constraint, then reports the actual Safari track settings.
+- The camera requests 4K/30 as an ideal constraint, then reports the actual browser track settings.
 - Sender tuning uses balanced adaptation so WebRTC can lower quality temporarily instead of building latency during short network dips.
 - The receiver reports incoming resolution/FPS, selected candidate path, inbound RTP stats, video element state, and a sampled rendered frame.
 - QR codes are generated in the browser, so there is no public QR-generation Worker endpoint.
@@ -43,12 +43,12 @@ pnpm run build
 pnpm run dev
 ```
 
-For iPhone Safari camera access during local development, use Wrangler's quick tunnel from the dev UI by pressing `t`.
+For phone camera access during local development, use Wrangler's quick tunnel from the dev UI by pressing `t`.
 
 Open:
 
-- `/` on Ubuntu to create a room, show the iPhone QR code, and preview the stream while OBS is absent.
-- `/camera?room=...` on iPhone Safari.
+- `/` on the computer to create a room, show the phone QR code, and preview the stream while OBS is absent.
+- `/camera?room=...` on the phone browser.
 - `/obs?room=...` in OBS Browser Source for the clean video-only receiver. When OBS connects, it becomes the active receiver without requiring the `/` page to close.
 
 ## Quality
