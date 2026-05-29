@@ -82,9 +82,18 @@
         place-items: center;
       }
 
-      body.debug .app,
-      body.camera .app {
+      body.debug .app {
         grid-template-columns: minmax(0, 1fr) 390px;
+      }
+
+      body.camera:not(.debug) .app {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        min-height: 100vh;
+        padding: max(22px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
       }
 
       .stage {
@@ -105,6 +114,14 @@
 
       body.connected:not(.debug) .stage {
         min-height: 100vh;
+      }
+
+      body.camera:not(.debug) .stage {
+        order: 2;
+        width: min(100%, 390px);
+        min-height: auto;
+        overflow: visible;
+        background: transparent;
       }
 
       video {
@@ -136,6 +153,12 @@
         box-shadow: var(--shadow);
       }
 
+      body.camera:not(.debug) .preview-frame {
+        width: 100%;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
       .panel {
         padding: 22px;
         overflow: auto;
@@ -163,11 +186,19 @@
         box-shadow: var(--shadow);
       }
 
-      body.debug .panel,
-      body.camera .panel {
+      body.debug .panel {
         min-height: 100vh;
         background: var(--panel);
         border-left: 1px solid var(--line);
+      }
+
+      body.camera:not(.debug) .panel {
+        order: 1;
+        width: min(100%, 390px);
+        min-height: auto;
+        padding: 0;
+        overflow: visible;
+        background: transparent;
       }
 
       h1,
@@ -190,6 +221,10 @@
       }
 
       body:not(.debug):not(.camera) h2 {
+        display: none;
+      }
+
+      body.camera:not(.debug) h2 {
         display: none;
       }
 
@@ -226,7 +261,17 @@
         padding: 0;
       }
 
+      body.camera:not(.debug) .status {
+        border: 0;
+        padding: 0;
+        background: transparent;
+      }
+
       body:not(.debug):not(.camera) .status p {
+        display: none;
+      }
+
+      body.camera:not(.debug) .status p {
         display: none;
       }
 
@@ -244,6 +289,28 @@
 
       body:not(.debug):not(.camera) .toolbar h1 {
         font-size: 22px;
+      }
+
+      body.camera:not(.debug) .toolbar {
+        margin-bottom: 12px;
+      }
+
+      body.camera:not(.debug) .toolbar h1 {
+        font-size: 22px;
+      }
+
+      body.camera:not(.debug) #cameraPanel {
+        margin-top: 18px;
+      }
+
+      body.camera:not(.debug) #cameraPanel .row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      body.camera:not(.debug) #cameraPanel button {
+        width: 100%;
       }
 
       .summary {
@@ -349,7 +416,6 @@
       body:not(.debug):not(.camera) #copyObsLink {
         width: 100%;
       }
-      }
 
       body:not(.debug):not(.camera) #summaryPanel {
         display: none;
@@ -410,8 +476,7 @@
       }
 
       @media (max-width: 900px) {
-        body.debug .app,
-        body.camera .app {
+        body.debug .app {
           grid-template-columns: 1fr;
         }
 
@@ -419,8 +484,11 @@
           min-height: 46vh;
         }
 
-        body.debug .panel,
-        body.camera .panel {
+        body.camera:not(.debug) .stage {
+          min-height: auto;
+        }
+
+        body.debug .panel {
           min-height: auto;
           border-left: 0;
           border-top: 1px solid var(--line);
