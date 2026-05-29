@@ -14,8 +14,7 @@ export type PairingUrls = {
 
 export function readSessionRoute(location: Location): SessionRoute {
   const urlParams = new URLSearchParams(location.search);
-  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ""));
-  const requestedMode = urlParams.get("mode") || hashParams.get("mode");
+  const requestedMode = urlParams.get("mode");
   const mode: Mode =
     requestedMode === "camera" || requestedMode === "obs" || requestedMode === "receiver"
       ? requestedMode
@@ -28,13 +27,15 @@ export function readSessionRoute(location: Location): SessionRoute {
   return {
     mode,
     role: mode === "camera" ? "camera" : "receiver",
-    room: urlParams.get("room") || hashParams.get("room"),
-    debug: urlParams.get("debug") === "1" || hashParams.get("debug") === "1",
+    room: urlParams.get("room"),
+    debug: urlParams.get("debug") === "1",
   };
 }
 
-export function persistRoomInHash(room: string): void {
-  location.hash = `room=${room}`;
+export function persistRoomInUrl(room: string): void {
+  const nextUrl = new URL(location.href);
+  nextUrl.searchParams.set("room", room);
+  history.replaceState(null, "", nextUrl);
 }
 
 export function buildPairingUrls(room: string, debug: boolean): PairingUrls {

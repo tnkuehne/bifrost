@@ -1,3 +1,4 @@
+import { onCleanup, useDebounce, useEventListener, useInterval } from "runed";
 import { createRoom as createSignalingRoom, openSignaling } from "./signaling";
 import type { CameraSettingsMessage, Mode, Role, SignalMessage, StatusKind } from "./types";
 import { errorMessage, round } from "./utils";
@@ -17,7 +18,7 @@ import { createRemoteVideoMonitor } from "./remote-video";
 import {
   buildPairingUrls,
   persistDebugInUrl,
-  persistRoomInHash,
+  persistRoomInUrl,
   readSessionRoute,
 } from "./session-url";
 
@@ -35,8 +36,6 @@ export function createWebcamSession() {
   let facingMode: "environment" | "user" = "environment";
   let pendingCandidates: RTCIceCandidateInit[] = [];
   let receiverActive = mode === "obs";
-  let statsTimer = 0;
-  let orientationTimer = 0;
   let debug = $state(route.debug);
   let hasRemoteVideo = $state(false);
 
@@ -84,25 +83,46 @@ export function createWebcamSession() {
   let pairing = $derived(!hasRemoteVideo && mode !== "camera" && mode !== "obs");
   let showDebug = $derived(debug && mode !== "obs");
 
+  const refreshCameraAfterOrientationChange = useDebounce(() => {
+    refreshCameraForOrientation().catch((error) =>
+      log(`Camera orientation refresh failed: ${errorMessage(error)}`),
+    );
+  }, 500);
+  const statsPoller = useInterval(1200, {
+    immediate: false,
+    immediateCallback: true,
+    callback: () => {
+      void pollSelectedPath();
+    },
+  });
+
+  useEventListener(
+    document,
+    ["pointerdown", "touchend", "keydown"],
+    () => {
+      remoteVideo.tryPlay("user interaction");
+    },
+    { once: true },
+  );
+  useEventListener(window, ["orientationchange", "resize"], () => scheduleCameraRefresh());
+  useEventListener(
+    () => globalThis.screen?.orientation ?? null,
+    "change",
+    () => scheduleCameraRefresh(),
+  );
+  onCleanup(() => {
+    closePeerConnection();
+    ws?.close();
+    stream?.getTracks().forEach((track) => track.stop());
+    window.clearTimeout(copyResetTimer);
+  });
+
   function mount(): () => void {
     init().catch((error: unknown) => fail(errorMessage(error)));
-
-    return () => {
-      closePeerConnection();
-      ws?.close();
-      stream?.getTracks().forEach((track) => track.stop());
-      window.clearTimeout(orientationTimer);
-      window.clearTimeout(copyResetTimer);
-    };
+    return () => {};
   }
 
   async function init(): Promise<void> {
-    for (const eventName of ["pointerdown", "touchend", "keydown"]) {
-      document.addEventListener(eventName, () => remoteVideo.tryPlay("user interaction"), {
-        once: true,
-      });
-    }
-
     if (!room && role === "receiver" && mode !== "obs") {
       await createRoom();
     }
@@ -116,7 +136,6 @@ export function createWebcamSession() {
     connectSignaling();
 
     if (mode === "camera") {
-      watchCameraOrientation();
       setStatus("waiting", "Camera permission", "Your browser should ask for camera access.");
       startCamera().catch((error: unknown) => {
         log(`Auto-start did not complete: ${errorMessage(error)}`);
@@ -137,7 +156,7 @@ export function createWebcamSession() {
 
   async function createRoom(): Promise<void> {
     room = await createSignalingRoom();
-    persistRoomInHash(room);
+    persistRoomInUrl(room);
   }
 
   function connectSignaling(): void {
@@ -432,22 +451,10 @@ export function createWebcamSession() {
     return nextStream;
   }
 
-  function watchCameraOrientation(): void {
-    const scheduleRefresh = () => {
-      if (!stream) {
-        return;
-      }
-      window.clearTimeout(orientationTimer);
-      orientationTimer = window.setTimeout(() => {
-        refreshCameraForOrientation().catch((error) =>
-          log(`Camera orientation refresh failed: ${errorMessage(error)}`),
-        );
-      }, 500);
-    };
-
-    window.addEventListener("orientationchange", scheduleRefresh);
-    window.addEventListener("resize", scheduleRefresh);
-    screen.orientation?.addEventListener?.("change", scheduleRefresh);
+  function scheduleCameraRefresh(): void {
+    if (stream) {
+      void refreshCameraAfterOrientationChange();
+    }
   }
 
   async function refreshCameraForOrientation(): Promise<void> {
@@ -528,11 +535,9 @@ export function createWebcamSession() {
   }
 
   function startStatsPolling(): void {
-    if (statsTimer) {
-      return;
+    if (!statsPoller.isActive) {
+      statsPoller.resume();
     }
-    statsTimer = window.setInterval(pollSelectedPath, 1200);
-    pollSelectedPath();
   }
 
   async function pollSelectedPath(): Promise<void> {
@@ -635,10 +640,7 @@ export function createWebcamSession() {
       pc.close();
       pc = null;
     }
-    if (statsTimer) {
-      window.clearInterval(statsTimer);
-      statsTimer = 0;
-    }
+    statsPoller.pause();
     hasRemoteVideo = false;
   }
 

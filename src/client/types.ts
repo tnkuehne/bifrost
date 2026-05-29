@@ -28,23 +28,6 @@ export interface SignalMessage {
   message?: string;
 }
 
-export interface AppState {
-  room: string | null;
-  ws: WebSocket | null;
-  pc: RTCPeerConnection | null;
-  stream: MediaStream | null;
-  facingMode: "environment" | "user";
-  pendingCandidates: RTCIceCandidateInit[];
-  startedCamera: boolean;
-  receiverActive: boolean;
-  statsTimer: number;
-  incomingFrames: number;
-  lastIncomingAt: number;
-  lastFrameSampleAt: number;
-  orientationTimer: number;
-  debug: boolean;
-}
-
 export interface CandidateReport {
   candidateType?: string;
   address?: string;
