@@ -17,7 +17,7 @@ export function createWebcamSession() {
   let ws: WebSocket | null = null;
   let pc: RTCPeerConnection | null = null;
   let pendingCandidates: RTCIceCandidateInit[] = [];
-  let receiverActive = mode === "obs";
+  let receiverActive = $state(mode === "obs");
   let debug = $state(route.debug);
   let hasRemoteVideo = $state(false);
 
@@ -44,7 +44,8 @@ export function createWebcamSession() {
 
   const title = mode === "camera" ? "Camera" : mode === "obs" ? "OBS Receiver" : "Receiver";
   let pairing = $derived(!hasRemoteVideo && mode !== "camera" && mode !== "obs");
-  let showDebug = $derived(debug && mode !== "obs");
+  let canDebug = $derived(mode !== "obs" && (mode !== "receiver" || receiverActive));
+  let showDebug = $derived(debug && canDebug);
 
   const refreshCameraAfterOrientationChange = useDebounce(() => {
     refreshCameraForOrientation().catch((error) =>
@@ -173,7 +174,7 @@ export function createWebcamSession() {
     if (message.type === "joined") {
       log(`Room ${room} joined.`);
       if (role === "receiver") {
-        receiverActive = message.receiverActive !== false;
+        setReceiverActive(message.receiverActive !== false);
         if (!receiverActive) {
           resetPeerConnection();
           setStatus(
@@ -191,7 +192,7 @@ export function createWebcamSession() {
     }
 
     if (message.type === "receiver-deactivated") {
-      receiverActive = false;
+      setReceiverActive(false);
       resetPeerConnection();
       setStatus(
         "good",
@@ -203,7 +204,7 @@ export function createWebcamSession() {
     }
 
     if (message.type === "receiver-activated") {
-      receiverActive = true;
+      setReceiverActive(true);
       setStatus(
         "waiting",
         "Receiver preview active",
@@ -455,8 +456,28 @@ export function createWebcamSession() {
   }
 
   function toggleDebug(): void {
+    if (!canDebug) {
+      clearDebug();
+      return;
+    }
     debug = !debug;
     persistDebugInUrl(debug);
+    updateLinks();
+  }
+
+  function setReceiverActive(active: boolean): void {
+    receiverActive = active;
+    if (!active) {
+      clearDebug();
+    }
+  }
+
+  function clearDebug(): void {
+    if (!debug) {
+      return;
+    }
+    debug = false;
+    persistDebugInUrl(false);
     updateLinks();
   }
 
@@ -528,6 +549,9 @@ export function createWebcamSession() {
     },
     get pairing() {
       return pairing;
+    },
+    get canDebug() {
+      return canDebug;
     },
     get showDebug() {
       return showDebug;

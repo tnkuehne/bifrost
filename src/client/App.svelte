@@ -23,7 +23,11 @@
   <title>Bifrost</title>
 </svelte:head>
 
-<AppLayout mode={session.mode} debug={session.debug} remoteVideoVisible={session.hasRemoteVideo}>
+<AppLayout
+  mode={session.mode}
+  debug={session.showDebug}
+  remoteVideoVisible={session.hasRemoteVideo}
+>
   {#snippet stage()}
     <Stage
       mode={session.mode}
@@ -45,18 +49,18 @@
           kind={session.statusKind}
           title={session.statusTitle}
           detail={session.statusDetail}
-          compact={!session.debug}
+          compact={!session.showDebug}
         />
       {:else if session.mode === "camera"}
         <StatusBlock
           kind={session.statusKind}
           title={session.statusTitle}
           detail={session.statusDetail}
-          compact={!session.debug}
+          compact={!session.showDebug}
         />
       {:else}
         <div class="flex items-center justify-between gap-2">
-          <Toolbar title={session.title} compact={!session.debug} />
+          <Toolbar title={session.title} compact={!session.showDebug} />
           <button
             class="min-h-10 cursor-pointer rounded-md border border-line bg-panel-2 px-3.5 text-text disabled:cursor-not-allowed disabled:opacity-[0.55]"
             type="button"
@@ -69,14 +73,14 @@
           kind={session.statusKind}
           title={session.statusTitle}
           detail={session.statusDetail}
-          compact={!session.debug}
+          compact={!session.showDebug}
         />
       {/if}
     </div>
 
     {#if session.mode !== "camera"}
       <ReceiverPanel
-        debug={session.debug}
+        debug={session.showDebug}
         cameraQr={session.cameraQr}
         cameraUrl={session.cameraUrl}
         obsUrl={session.obsUrl}
@@ -88,13 +92,13 @@
 
     {#if session.mode === "camera"}
       <CameraPanel
-        compact={!session.debug}
+        compact={!session.showDebug}
         hasStream={session.hasStream}
         onStartCamera={session.startCameraFromUi}
       />
     {/if}
 
-    {#if session.mode !== "camera" && session.debug}
+    {#if session.mode !== "camera" && session.showDebug}
       <SummaryPanel
         cameraSummary={session.cameraSummary}
         incomingSummary={session.incomingSummary}
@@ -131,11 +135,13 @@
   >
     <img class="size-6 invert" src={githubMarkUrl} alt="" aria-hidden="true" />
   </a>
-  <button
-    class="fixed right-4 bottom-4 z-20 min-h-10 cursor-pointer rounded-md border border-line bg-panel-2 px-3.5 text-text shadow-panel disabled:cursor-not-allowed disabled:opacity-[0.55]"
-    type="button"
-    onclick={session.toggleDebug}
-  >
-    {session.debug ? "Normal" : "Debug"}
-  </button>
+  {#if session.canDebug}
+    <button
+      class="fixed right-4 bottom-4 z-20 min-h-10 cursor-pointer rounded-md border border-line bg-panel-2 px-3.5 text-text shadow-panel disabled:cursor-not-allowed disabled:opacity-[0.55]"
+      type="button"
+      onclick={session.toggleDebug}
+    >
+      {session.debug ? "Normal" : "Debug"}
+    </button>
+  {/if}
 {/if}
