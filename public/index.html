@@ -689,6 +689,9 @@
 
         if (message.type === "peer-joined") {
           log(`${message.role} connected.`);
+          if (message.role !== role) {
+            resetPeerConnection();
+          }
           if (role === "receiver" && message.role === "camera") {
             await startReceiverOffer();
           }
@@ -707,6 +710,7 @@
             }
             return;
           }
+          resetPeerConnection();
           setStatus("waiting", "Peer disconnected", "Reconnect the iPhone page to resume.");
           return;
         }
@@ -791,10 +795,8 @@
       }
 
       async function startReceiverOffer() {
+        resetPeerConnection();
         await ensurePeerConnection();
-        if (state.pc.signalingState !== "stable") {
-          return;
-        }
         state.pc.addTransceiver("video", { direction: "recvonly" });
         const offer = await state.pc.createOffer();
         await state.pc.setLocalDescription(offer);
@@ -805,6 +807,7 @@
 
       async function answerOffer(description) {
         await startCamera();
+        resetPeerConnection();
         await ensurePeerConnection();
         for (const track of state.stream.getTracks()) {
           const sender = state.pc.addTrack(track, state.stream);
@@ -1251,6 +1254,12 @@
       function fail(message) {
         setStatus("bad", "Failed", message);
         log(message);
+      }
+
+      function resetPeerConnection() {
+        closePeerConnection();
+        state.pendingCandidates = [];
+        remoteVideo.srcObject = null;
       }
 
       function closePeerConnection() {
