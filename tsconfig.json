@@ -31,5 +31,6 @@
     "forceConsistentCasingInFileNames": true,
 
     "types": ["./worker-configuration.d.ts", "node"]
-  }
+  },
+  "exclude": ["dist", "node_modules"]
 }

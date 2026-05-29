@@ -24,8 +24,10 @@ The phone opens a browser camera page. The computer opens a receiver page, or th
 
 ## Design
 
-- `src/client/index.html` is the Vite browser shell with receiver, camera, and OBS modes.
-- `src/client/` contains the Vite-built browser modules, including client-side QR generation.
+- `src/client/index.html` is the Vite browser shell.
+- `src/client/App.svelte` owns WebRTC orchestration and room state; `src/client/components/` contains the Svelte UI sections.
+- Tailwind CSS is wired through the official Vite plugin. Utility classes live on Svelte markup; `src/client/app.css` only defines Tailwind theme tokens and small global browser defaults.
+- `src/client/` also contains browser helper modules for signaling, QR generation, and WebRTC diagnostics.
 - `src/index.ts` is a Cloudflare Worker that serves app routes, creates rooms, applies native rate limits, and upgrades signaling WebSockets.
 - `SignalingRoom` is a Durable Object keyed by room id. It forwards only SDP/ICE JSON between one active receiver and one camera.
 - `/obs` has receiver priority. `/` can preview the stream while OBS is absent, then stays available for pairing/status when OBS connects.
