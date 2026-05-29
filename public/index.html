@@ -167,6 +167,36 @@
         padding: 12px;
       }
 
+      .toolbar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .summary {
+        display: grid;
+        gap: 8px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgb(255 255 255 / 0.03);
+        padding: 12px;
+      }
+
+      .summary-row {
+        display: flex;
+        gap: 8px;
+        justify-content: space-between;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .summary-row strong {
+        color: var(--text);
+        text-align: right;
+      }
+
       .dot {
         width: 10px;
         height: 10px;
@@ -302,7 +332,10 @@
 
       <aside class="panel">
         <div class="stack">
-          <h1 id="title">Local WebRTC Webcam</h1>
+          <div class="toolbar">
+            <h1 id="title">Local WebRTC Webcam</h1>
+            <button id="toggleDebug" type="button">Debug</button>
+          </div>
           <div class="status">
             <div id="statusDot" class="dot"></div>
             <div>
@@ -343,7 +376,22 @@
           </div>
         </section>
 
-        <section>
+        <section id="summaryPanel">
+          <h2>Stream</h2>
+          <div class="summary">
+            <div class="summary-row">
+              <span>Camera</span><strong id="cameraSummary">Waiting</strong>
+            </div>
+            <div class="summary-row">
+              <span>Receiver</span><strong id="incomingSummary">Waiting</strong>
+            </div>
+            <div class="summary-row">
+              <span>Path</span><strong id="pathSummary">Local direct only</strong>
+            </div>
+          </div>
+        </section>
+
+        <section id="debugCameraPanel">
           <h2>Camera Format</h2>
           <div class="kv"><span>Page role</span><strong id="pageRole">Detecting</strong></div>
           <div class="kv">
@@ -360,7 +408,7 @@
           <div class="kv"><span>Inbound RTP</span><span id="inboundStats">Waiting</span></div>
         </section>
 
-        <section>
+        <section id="debugPathPanel">
           <h2>Direct Path Check</h2>
           <div class="kv"><span>ICE servers</span><span id="iceServers">0 configured</span></div>
           <div class="kv"><span>Selected path</span><span id="selectedPath">Waiting</span></div>
@@ -373,7 +421,7 @@
           </div>
         </section>
 
-        <section>
+        <section id="debugEventsPanel">
           <h2>Events</h2>
           <div id="log" class="log"></div>
         </section>
@@ -409,6 +457,7 @@
         incomingFrames: 0,
         lastIncomingAt: 0,
         lastFrameSampleAt: 0,
+        debug: urlParams.get("debug") === "1" || hashParams.get("debug") === "1",
       };
 
       const els = {
@@ -416,8 +465,16 @@
         statusDot: document.getElementById("statusDot"),
         statusText: document.getElementById("statusText"),
         statusDetail: document.getElementById("statusDetail"),
+        toggleDebug: document.getElementById("toggleDebug"),
         receiverPanel: document.getElementById("receiverPanel"),
         cameraPanel: document.getElementById("cameraPanel"),
+        summaryPanel: document.getElementById("summaryPanel"),
+        cameraSummary: document.getElementById("cameraSummary"),
+        incomingSummary: document.getElementById("incomingSummary"),
+        pathSummary: document.getElementById("pathSummary"),
+        debugCameraPanel: document.getElementById("debugCameraPanel"),
+        debugPathPanel: document.getElementById("debugPathPanel"),
+        debugEventsPanel: document.getElementById("debugEventsPanel"),
         receiverFrame: document.getElementById("receiverFrame"),
         cameraFrame: document.getElementById("cameraFrame"),
         cameraQr: document.getElementById("cameraQr"),
@@ -464,8 +521,10 @@
         els.cameraPanel.classList.toggle("hidden", mode !== "camera");
         els.receiverFrame.classList.toggle("hidden", mode === "camera");
         els.cameraFrame.classList.toggle("hidden", mode !== "camera");
+        els.summaryPanel.classList.toggle("hidden", mode === "camera");
         els.pageRole.textContent = `${mode} (${role})`;
         els.iceServers.textContent = `${ICE_CONFIG.iceServers.length} configured`;
+        updateDebugMode();
 
         if (new URLSearchParams(location.search).get("fit") === "cover") {
           document.body.classList.add("fit-cover");
@@ -502,6 +561,18 @@
       }
 
       function wireControls() {
+        els.toggleDebug.addEventListener("click", () => {
+          state.debug = !state.debug;
+          updateDebugMode();
+          const nextUrl = new URL(location.href);
+          if (state.debug) {
+            nextUrl.searchParams.set("debug", "1");
+          } else {
+            nextUrl.searchParams.delete("debug");
+          }
+          history.replaceState(null, "", nextUrl);
+          updateLinks();
+        });
         els.copyCameraLink.addEventListener("click", () => copyText(els.cameraLink.textContent));
         els.copyObsLink.addEventListener("click", () => copyText(els.obsLink.textContent));
         els.newRoom.addEventListener("click", () => {
@@ -838,6 +909,7 @@
             ? `${settings.width} x ${settings.height}`
             : "size unknown";
         els.cameraFormat.textContent = `${prefix}: ${size} at ${fps}`;
+        els.cameraSummary.textContent = `${size} @ ${fps}`;
       }
 
       function trackIncomingVideo() {
@@ -885,6 +957,7 @@
             ? `${remoteVideo.videoWidth} x ${remoteVideo.videoHeight}`
             : "size unknown";
         els.incomingFormat.textContent = fps ? `${size} at ${round(fps)} fps measured` : size;
+        els.incomingSummary.textContent = fps ? `${size} @ ${round(fps)} fps` : size;
       }
 
       function tryPlayRemoteVideo(reason) {
@@ -1020,6 +1093,7 @@
         els.selectedPath.textContent = direct
           ? "Direct non-relay ICE candidate pair selected"
           : "Selected path needs review";
+        els.pathSummary.textContent = direct ? "Local direct" : "Needs review";
         els.localCandidate.textContent = localText;
         els.remoteCandidate.textContent = remoteText;
         els.relayState.textContent = relay
@@ -1060,6 +1134,9 @@
         }
         const cameraParams = new URLSearchParams({ mode: "camera", room: state.room });
         const obsParams = new URLSearchParams({ mode: "obs", room: state.room });
+        if (state.debug) {
+          cameraParams.set("debug", "1");
+        }
         if (document.body.classList.contains("fit-cover")) {
           obsParams.set("fit", "cover");
         }
@@ -1068,6 +1145,14 @@
         els.cameraQr.src = `/api/qr?data=${encodeURIComponent(cameraUrl)}`;
         els.cameraLink.textContent = cameraUrl;
         els.obsLink.textContent = obsUrl;
+      }
+
+      function updateDebugMode() {
+        const hidden = !state.debug || mode === "obs";
+        els.debugCameraPanel.classList.toggle("hidden", hidden);
+        els.debugPathPanel.classList.toggle("hidden", hidden);
+        els.debugEventsPanel.classList.toggle("hidden", hidden);
+        els.toggleDebug.textContent = state.debug ? "Normal" : "Debug";
       }
 
       function getRoomFromUrl() {
