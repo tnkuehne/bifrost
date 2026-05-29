@@ -387,6 +387,10 @@ app.all("/api/*", (c) => c.text("Not found", 404));
 
 app.get("/assets/*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
-app.get("*", (c) => serveApp(c.req.raw, c.env));
+app.get("/", (c) => serveApp(c.req.raw, c.env));
+app.get("/camera", (c) => serveApp(c.req.raw, c.env));
+app.get("/obs", (c) => serveApp(c.req.raw, c.env));
+
+app.notFound((c) => c.text("Not found", 404));
 
 export default app;
