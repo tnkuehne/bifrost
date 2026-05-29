@@ -86,10 +86,6 @@ async function init(): Promise<void> {
   updateDebugMode();
   updateCameraControls();
 
-  if (new URLSearchParams(location.search).get("fit") === "cover") {
-    document.body.classList.add("fit-cover");
-    els.toggleFit.textContent = "Fit: Cover";
-  }
   updatePageState();
 
   wireControls();
@@ -132,13 +128,6 @@ function wireControls() {
     updateLinks();
   });
   els.copyObsLink.addEventListener("click", () => copyText(els.obsLink.textContent));
-  els.toggleFit.addEventListener("click", () => {
-    document.body.classList.toggle("fit-cover");
-    els.toggleFit.textContent = document.body.classList.contains("fit-cover")
-      ? "Fit: Cover"
-      : "Fit: Contain";
-    updateLinks();
-  });
   els.startCamera.addEventListener("click", () =>
     startCamera().catch((error: unknown) => fail(errorMessage(error))),
   );

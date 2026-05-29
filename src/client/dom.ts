@@ -33,7 +33,6 @@ export const els = {
   cameraLink: getElement("cameraLink", HTMLElement),
   obsLink: getElement("obsLink", HTMLElement),
   copyObsLink: getElement("copyObsLink", HTMLButtonElement),
-  toggleFit: getElement("toggleFit", HTMLButtonElement),
   startCamera: getElement("startCamera", HTMLButtonElement),
   switchCamera: getElement("switchCamera", HTMLButtonElement),
   pageRole: getElement("pageRole", HTMLElement),

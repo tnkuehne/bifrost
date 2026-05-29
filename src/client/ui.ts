@@ -24,15 +24,11 @@ export function createUi(state: AppState, mode: Mode) {
       return;
     }
     const cameraParams = new URLSearchParams({ room: state.room });
-    const obsParams = new URLSearchParams({ room: state.room });
     if (state.debug) {
       cameraParams.set("debug", "1");
     }
-    if (document.body.classList.contains("fit-cover")) {
-      obsParams.set("fit", "cover");
-    }
     const cameraUrl = `${location.origin}/camera?${cameraParams}`;
-    const obsUrl = `${location.origin}/obs?${obsParams}`;
+    const obsUrl = `${location.origin}/obs?${new URLSearchParams({ room: state.room })}`;
     renderCameraQr(cameraUrl);
     els.cameraLink.textContent = cameraUrl;
     els.obsLink.textContent = obsUrl;
