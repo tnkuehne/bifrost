@@ -1,4 +1,7 @@
-# Bifrost
+<h1>
+  <img src="https://raw.githubusercontent.com/tnkuehne/bifrost/refs/heads/main/src/client/assets/webcam.svg" alt="" width="32" height="32" align="center" />
+  Bifrost
+</h1>
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Ftnkuehne%2Fbifrost)
 

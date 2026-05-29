@@ -489,11 +489,7 @@ export function createWebcamSession() {
   }
 
   function setObsReceiverStatus(): void {
-    setStatus(
-      "good",
-      "OBS is handling the camera stream",
-      "You can close this page.",
-    );
+    setStatus("good", "OBS is handling the camera stream", "You can close this page.");
   }
 
   function fail(message: string): void {
