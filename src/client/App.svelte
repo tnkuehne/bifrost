@@ -36,9 +36,16 @@
 
   {#snippet panel()}
     <div class="grid gap-3">
-      <div class="flex items-center justify-between gap-2">
-        <Toolbar title={session.title} compact={!session.debug} />
-        {#if session.mode !== "receiver"}
+      {#if session.mode === "receiver"}
+        <StatusBlock
+          kind={session.statusKind}
+          title={session.statusTitle}
+          detail={session.statusDetail}
+          compact={!session.debug}
+        />
+      {:else}
+        <div class="flex items-center justify-between gap-2">
+          <Toolbar title={session.title} compact={!session.debug} />
           <button
             class="min-h-10 cursor-pointer rounded-md border border-line bg-panel-2 px-3.5 text-text disabled:cursor-not-allowed disabled:opacity-[0.55]"
             type="button"
@@ -46,14 +53,14 @@
           >
             {session.debug ? "Normal" : "Debug"}
           </button>
-        {/if}
-      </div>
-      <StatusBlock
-        kind={session.statusKind}
-        title={session.statusTitle}
-        detail={session.statusDetail}
-        compact={!session.debug}
-      />
+        </div>
+        <StatusBlock
+          kind={session.statusKind}
+          title={session.statusTitle}
+          detail={session.statusDetail}
+          compact={!session.debug}
+        />
+      {/if}
     </div>
 
     {#if session.mode !== "camera"}
