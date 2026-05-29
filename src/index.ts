@@ -1,65 +1,231 @@
 import { DurableObject } from "cloudflare:workers";
+import QRCode from "qrcode";
 
-/**
- * Welcome to Cloudflare Workers! This is your first Durable Objects application.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your Durable Object in action
- * - Run `npm run deploy` to publish your application
- *
- * Bind resources to your worker in `wrangler.jsonc`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/durable-objects
- */
+type Role = "receiver" | "camera";
 
+interface ConnectionState {
+	role: Role;
+	connectedAt: number;
+}
 
-/** A Durable Object's behavior is defined in an exported Javascript class */
-export class MyDurableObject extends DurableObject {
-	/**
-	 * The constructor is invoked once upon creation of the Durable Object, i.e. the first call to
-	 * 	`DurableObjectStub::get` for a given identifier (no-op constructors can be omitted)
-	 *
-	 * @param ctx - The interface for interacting with Durable Object state
-	 * @param env - The interface to reference bindings declared in wrangler.jsonc
-	 */
-	constructor(ctx: DurableObjectState, env: Env) {
-		super(ctx, env);
+interface SignalEnvelope {
+	type: string;
+	[key: string]: unknown;
+}
+
+const ROOM_PATTERN = /^[a-z0-9-]{6,64}$/;
+const ROLES = new Set<Role>(["receiver", "camera"]);
+
+function json(data: unknown, init: ResponseInit = {}): Response {
+	return new Response(JSON.stringify(data), {
+		...init,
+		headers: {
+			"content-type": "application/json; charset=utf-8",
+			...init.headers,
+		},
+	});
+}
+
+async function serveApp(request: Request, env: Env): Promise<Response> {
+	const response = await env.ASSETS.fetch(new Request(`${new URL(request.url).origin}/index.html`, request));
+	const headers = new Headers(response.headers);
+	headers.set("cache-control", "no-store");
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers,
+	});
+}
+
+function makeRoomId(): string {
+	const bytes = new Uint8Array(10);
+	crypto.getRandomValues(bytes);
+	const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+	return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+}
+
+function isRole(value: string | null): value is Role {
+	return value !== null && ROLES.has(value as Role);
+}
+
+function getState(ws: WebSocket): ConnectionState | null {
+	return ws.deserializeAttachment() as ConnectionState | null;
+}
+
+export class SignalingRoom extends DurableObject<Env> {
+	async fetch(request: Request): Promise<Response> {
+		if (request.headers.get("Upgrade") !== "websocket") {
+			return new Response("Expected WebSocket upgrade", { status: 426 });
+		}
+
+		const url = new URL(request.url);
+		const role = url.searchParams.get("role");
+		if (!isRole(role)) {
+			return new Response("Invalid role", { status: 400 });
+		}
+
+		for (const socket of this.ctx.getWebSockets()) {
+			const state = getState(socket);
+			if (state?.role === role) {
+				socket.close(4000, "Replaced by a new connection for this role");
+			}
+		}
+
+		const pair = new WebSocketPair();
+		const [client, server] = Object.values(pair);
+		this.ctx.acceptWebSocket(server);
+		server.serializeAttachment({ role, connectedAt: Date.now() } satisfies ConnectionState);
+
+		this.send(server, {
+			type: "joined",
+			role,
+			peers: this.connectedRoles(),
+		});
+		this.broadcast(server, {
+			type: "peer-joined",
+			role,
+			peers: this.connectedRoles(),
+		});
+
+		return new Response(null, { status: 101, webSocket: client });
 	}
 
-	/**
-	 * The Durable Object exposes an RPC method sayHello which will be invoked when a Durable
-	 *  Object instance receives a request from a Worker via the same method invocation on the stub
-	 *
-	 * @param name - The name provided to a Durable Object instance from a Worker
-	 * @returns The greeting to be sent back to the Worker
-	 */
-	async sayHello(name: string): Promise<string> {
-		return `Hello, ${name}!`;
+	async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+		const state = getState(ws);
+		if (!state || typeof message !== "string") {
+			return;
+		}
+
+		let envelope: SignalEnvelope;
+		try {
+			envelope = JSON.parse(message) as SignalEnvelope;
+		} catch {
+			this.send(ws, { type: "error", message: "Invalid JSON signal" });
+			return;
+		}
+
+		if (typeof envelope.type !== "string") {
+			this.send(ws, { type: "error", message: "Signal is missing a type" });
+			return;
+		}
+
+		this.forwardToPeer(state.role, {
+			...envelope,
+			from: state.role,
+			receivedAt: Date.now(),
+		});
+	}
+
+	async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
+		const state = getState(ws);
+		if (state) {
+			this.broadcast(ws, {
+				type: "peer-left",
+				role: state.role,
+				peers: this.connectedRoles(ws),
+			});
+		}
+	}
+
+	private connectedRoles(exclude?: WebSocket): Role[] {
+		const roles = new Set<Role>();
+		for (const socket of this.ctx.getWebSockets()) {
+			if (socket === exclude) {
+				continue;
+			}
+			const state = getState(socket);
+			if (state) {
+				roles.add(state.role);
+			}
+		}
+		return Array.from(roles).sort();
+	}
+
+	private forwardToPeer(from: Role, envelope: SignalEnvelope): void {
+		const target: Role = from === "receiver" ? "camera" : "receiver";
+		for (const socket of this.ctx.getWebSockets()) {
+			const state = getState(socket);
+			if (state?.role === target) {
+				this.send(socket, envelope);
+			}
+		}
+	}
+
+	private broadcast(sender: WebSocket, envelope: SignalEnvelope): void {
+		for (const socket of this.ctx.getWebSockets()) {
+			if (socket !== sender) {
+				this.send(socket, envelope);
+			}
+		}
+	}
+
+	private send(ws: WebSocket, envelope: SignalEnvelope): void {
+		try {
+			ws.send(JSON.stringify(envelope));
+		} catch {
+			ws.close(1011, "Unable to send signal");
+		}
 	}
 }
 
 export default {
-	/**
-	 * This is the standard fetch handler for a Cloudflare Worker
-	 *
-	 * @param request - The request submitted to the Worker from the client
-	 * @param env - The interface to reference bindings declared in wrangler.jsonc
-	 * @param ctx - The execution context of the Worker
-	 * @returns The response to be sent back to the client
-	 */
-	async fetch(request, env, ctx): Promise<Response> {
-		// Create a stub to open a communication channel with the Durable Object
-		// instance named "foo".
-		//
-		// Requests from all Workers to the Durable Object instance named "foo"
-		// will go to a single remote Durable Object instance.
-		const stub = env.MY_DURABLE_OBJECT.getByName("foo");
+	async fetch(request, env): Promise<Response> {
+		const url = new URL(request.url);
 
-		// Call the `sayHello()` RPC method on the stub to invoke the method on
-		// the remote Durable Object instance.
-		const greeting = await stub.sayHello("world");
+		if (url.pathname === "/api/room") {
+			const room = makeRoomId();
+			return json({
+				room,
+				receiverUrl: `${url.origin}/receiver?mode=receiver&room=${room}`,
+				cameraUrl: `${url.origin}/camera?mode=camera&room=${room}`,
+				obsUrl: `${url.origin}/obs?mode=obs&room=${room}`,
+			});
+		}
 
-		return new Response(greeting);
+		if (url.pathname === "/api/qr") {
+			const data = url.searchParams.get("data");
+			if (!data || data.length > 512) {
+				return new Response("Invalid QR data", { status: 400 });
+			}
+
+			const svg = await QRCode.toString(data, {
+				type: "svg",
+				errorCorrectionLevel: "M",
+				margin: 2,
+				color: {
+					dark: "#07100d",
+					light: "#ffffff",
+				},
+			});
+			return new Response(svg, {
+				headers: {
+					"cache-control": "no-store",
+					"content-type": "image/svg+xml; charset=utf-8",
+				},
+			});
+		}
+
+		if (url.pathname.startsWith("/ws/")) {
+			if (request.headers.get("Upgrade") !== "websocket") {
+				return new Response("Expected WebSocket upgrade", { status: 426 });
+			}
+
+			const [, , room, role] = url.pathname.split("/");
+			if (!ROOM_PATTERN.test(room ?? "") || !isRole(role ?? null)) {
+				return new Response("Invalid signaling URL", { status: 400 });
+			}
+
+			const id = env.SIGNALING_ROOM.idFromName(room);
+			const stub = env.SIGNALING_ROOM.get(id);
+			const roomUrl = new URL(request.url);
+			roomUrl.searchParams.set("role", role);
+			return stub.fetch(new Request(roomUrl, request));
+		}
+
+		if (["/", "/receiver", "/camera", "/obs"].includes(url.pathname)) {
+			return serveApp(request, env);
+		}
+
+		return env.ASSETS.fetch(request);
 	},
 } satisfies ExportedHandler<Env>;
