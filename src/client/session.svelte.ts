@@ -34,7 +34,7 @@ export function createWebcamSession() {
   });
   const localCamera = createLocalCamera({
     onMeta: (settings) => sendSignal({ type: "camera-meta", settings }),
-    onReady: () => setStatus("good", "Camera ready", "Waiting for the receiver."),
+    onReady: () => setStatus("waiting", "Waiting for receiver", "Keep this page open."),
     onLog: (message) => log(message),
   });
   const pairingLinks = createPairingLinks({
@@ -300,7 +300,11 @@ export function createWebcamSession() {
       onConnectionState: (state) => {
         log(`Peer connection: ${state}`);
         if (state === "connected") {
-          setStatus("good", "Direct WebRTC connected", "Verify the selected ICE path below.");
+          if (role === "camera") {
+            setStatus("good", "Sending video", "Keep this page open.");
+          } else {
+            setStatus("good", "Direct WebRTC connected", "Verify the selected ICE path below.");
+          }
           startStatsPolling();
         }
         if (["failed", "closed"].includes(state)) {
@@ -403,11 +407,22 @@ export function createWebcamSession() {
     }
     const sender = pc?.getSenders().find((item) => item.track?.kind === "video");
     await localCamera.refreshForOrientation(sender);
+    refreshCameraStatus();
   }
 
   async function switchCamera(): Promise<void> {
     const sender = pc?.getSenders().find((item) => item.track?.kind === "video");
     await localCamera.switchCamera(sender);
+    refreshCameraStatus();
+  }
+
+  function refreshCameraStatus(): void {
+    if (mode !== "camera") {
+      return;
+    }
+    if (pc?.connectionState === "connected") {
+      setStatus("good", "Sending video", "Keep this page open.");
+    }
   }
 
   function startStatsPolling(): void {

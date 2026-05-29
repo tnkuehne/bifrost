@@ -2,22 +2,27 @@
 
 <script lang="ts">
   import type { Mode } from "../types";
+  import switchCameraUrl from "../assets/switch-camera.svg";
   import VideoFrame from "./VideoFrame.svelte";
 
   type Props = {
     mode?: Mode;
     debug?: boolean;
     pairing?: boolean;
+    hasLocalStream?: boolean;
     setRemoteVideo?: (node: HTMLVideoElement) => void;
     setLocalVideo?: (node: HTMLVideoElement) => void;
+    onSwitchCamera?: () => void;
   };
 
   let {
     mode = "receiver",
     debug = false,
     pairing = false,
+    hasLocalStream = false,
     setRemoteVideo = () => {},
     setLocalVideo = () => {},
+    onSwitchCamera = () => {},
   }: Props = $props();
 </script>
 
@@ -45,6 +50,17 @@
       frameClass="aspect-video w-full overflow-hidden rounded-[10px] bg-black shadow-panel"
       setVideo={setLocalVideo}
     />
+    {#if hasLocalStream}
+      <button
+        class="absolute right-3 bottom-3 grid size-11 cursor-pointer place-items-center rounded-full bg-black/35 text-white shadow-panel backdrop-blur-md transition hover:bg-black/50 active:scale-95"
+        type="button"
+        aria-label="Switch camera"
+        title="Switch camera"
+        onclick={onSwitchCamera}
+      >
+        <img class="size-5 invert" src={switchCameraUrl} alt="" aria-hidden="true" />
+      </button>
+    {/if}
   </section>
 {:else if mode === "camera"}
   <section
@@ -55,6 +71,17 @@
       frameClass="aspect-video w-[min(100%,760px)] bg-black shadow-panel"
       setVideo={setLocalVideo}
     />
+    {#if hasLocalStream}
+      <button
+        class="absolute right-5 bottom-5 grid size-12 cursor-pointer place-items-center rounded-full bg-black/35 text-white shadow-panel backdrop-blur-md transition hover:bg-black/50 active:scale-95"
+        type="button"
+        aria-label="Switch camera"
+        title="Switch camera"
+        onclick={onSwitchCamera}
+      >
+        <img class="size-5 invert" src={switchCameraUrl} alt="" aria-hidden="true" />
+      </button>
+    {/if}
   </section>
 {:else}
   <section

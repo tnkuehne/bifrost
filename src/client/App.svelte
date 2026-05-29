@@ -29,14 +29,23 @@
       mode={session.mode}
       debug={session.debug}
       pairing={session.pairing}
+      hasLocalStream={session.hasStream}
       setRemoteVideo={session.setRemoteVideo}
       setLocalVideo={session.setLocalVideo}
+      onSwitchCamera={session.switchCameraFromUi}
     />
   {/snippet}
 
   {#snippet panel()}
     <div class="grid gap-3">
       {#if session.mode === "receiver"}
+        <StatusBlock
+          kind={session.statusKind}
+          title={session.statusTitle}
+          detail={session.statusDetail}
+          compact={!session.debug}
+        />
+      {:else if session.mode === "camera"}
         <StatusBlock
           kind={session.statusKind}
           title={session.statusTitle}
@@ -80,7 +89,6 @@
         compact={!session.debug}
         hasStream={session.hasStream}
         onStartCamera={session.startCameraFromUi}
-        onSwitchCamera={session.switchCameraFromUi}
       />
     {/if}
 

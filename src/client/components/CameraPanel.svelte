@@ -5,10 +5,9 @@
     compact?: boolean;
     hasStream: boolean;
     onStartCamera: () => void;
-    onSwitchCamera: () => void;
   };
 
-  let { compact = false, hasStream, onStartCamera, onSwitchCamera }: Props = $props();
+  let { compact = false, hasStream, onStartCamera }: Props = $props();
 
   const buttonClass =
     "min-h-10 cursor-pointer rounded-md border border-line bg-panel-2 px-3.5 text-text disabled:cursor-not-allowed disabled:opacity-[0.55]";
@@ -28,11 +27,6 @@
     {#if !hasStream}
       <button class={primaryButtonClass + fullWidth} type="button" onclick={onStartCamera}>
         Start Camera
-      </button>
-    {/if}
-    {#if hasStream}
-      <button class={buttonClass + fullWidth} type="button" onclick={onSwitchCamera}>
-        Switch Camera
       </button>
     {/if}
   </div>
