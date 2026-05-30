@@ -6,6 +6,8 @@
     "build": "vite build",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check",
     "dev": "wrangler dev --tunnel",
+    "deploy": "wrangler deploy",
+    "deploy:preview": "wrangler versions upload",
     "cf-typegen": "wrangler types",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
