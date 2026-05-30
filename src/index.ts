@@ -20,6 +20,7 @@ interface SignalEnvelope {
 
 const ROOM_PATTERN = /^[A-Za-z0-9_-]{22,64}$/;
 const ROLES = new Set<Role>(["receiver", "camera"]);
+const MAX_SIGNAL_MESSAGE_LENGTH = 64 * 1024;
 
 async function serveApp(request: Request, env: Env): Promise<Response> {
   const response = await env.ASSETS.fetch(
@@ -128,6 +129,28 @@ export class SignalingRoom extends DurableObject<Env> {
       return;
     }
 
+    const rateLimitResponse = await rateLimit(this.env.SIGNAL_MESSAGE_RATE_LIMITER, state.room);
+    if (rateLimitResponse) {
+      this.send(ws, { type: "error", message: "Signaling rate limit exceeded" });
+      ws.close(1013, "Signaling rate limit exceeded");
+      return;
+    }
+
+    const currentState = getState(ws);
+    if (!currentState || currentState.replacing) {
+      return;
+    }
+
+    if (currentState.role === "receiver" && !currentState.active) {
+      return;
+    }
+
+    if (message.length > MAX_SIGNAL_MESSAGE_LENGTH) {
+      this.send(ws, { type: "error", message: "Signal message is too large" });
+      ws.close(1009, "Signal message is too large");
+      return;
+    }
+
     let envelope: SignalEnvelope;
     try {
       envelope = JSON.parse(message) as SignalEnvelope;
@@ -141,20 +164,9 @@ export class SignalingRoom extends DurableObject<Env> {
       return;
     }
 
-    const rateLimitResponse = await rateLimit(this.env.SIGNAL_MESSAGE_RATE_LIMITER, state.room);
-    if (rateLimitResponse) {
-      this.send(ws, { type: "error", message: "Signaling rate limit exceeded" });
-      ws.close(1013, "Signaling rate limit exceeded");
-      return;
-    }
-
-    if (state.role === "receiver" && !state.active) {
-      return;
-    }
-
-    this.forwardToPeer(ws, state.role, {
+    this.forwardToPeer(ws, currentState.role, {
       ...envelope,
-      from: state.role,
+      from: currentState.role,
       receivedAt: Date.now(),
     });
   }
