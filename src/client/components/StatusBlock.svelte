@@ -26,36 +26,6 @@
   );
 </script>
 
-<svelte:head>
-  <style>
-    @keyframes status-search {
-      0%,
-      100% {
-        box-shadow: 0 0 0 4px rgb(251 191 36 / 0.13);
-        transform: scale(1);
-      }
-
-      50% {
-        box-shadow: 0 0 0 8px rgb(251 191 36 / 0.05);
-        transform: scale(1.12);
-      }
-    }
-
-    @keyframes status-good {
-      0%,
-      100% {
-        box-shadow: 0 0 0 4px rgb(52 211 153 / 0.13);
-        transform: scale(1);
-      }
-
-      50% {
-        box-shadow: 0 0 0 8px rgb(52 211 153 / 0.05);
-        transform: scale(1.1);
-      }
-    }
-  </style>
-</svelte:head>
-
 <div class={statusClass}>
   <div class={dotClass}></div>
   <div>

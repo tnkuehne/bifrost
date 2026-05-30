@@ -39,3 +39,9 @@ If the application uses Durable Objects or Workflows, refer to the relevant best
 
 - Durable Objects: https://developers.cloudflare.com/durable-objects/best-practices/rules-of-durable-objects/
 - Workflows: https://developers.cloudflare.com/workflows/build/rules-of-workflows/
+
+# Svelte
+
+If the application uses Svelte, refer to the relevant best practices:
+
+- https://svelte.dev/docs/svelte/best-practices

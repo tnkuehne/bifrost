@@ -39,3 +39,36 @@ body {
 button {
   font: inherit;
 }
+
+.grid-backdrop {
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 0.035) 1px, transparent 1px),
+    linear-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px), #020504;
+  background-size: 36px 36px;
+}
+
+@keyframes status-search {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgb(251 191 36 / 0.13);
+    transform: scale(1);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgb(251 191 36 / 0.05);
+    transform: scale(1.12);
+  }
+}
+
+@keyframes status-good {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgb(52 211 153 / 0.13);
+    transform: scale(1);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgb(52 211 153 / 0.05);
+    transform: scale(1.1);
+  }
+}

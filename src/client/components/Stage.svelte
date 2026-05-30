@@ -81,8 +81,7 @@
   </section>
 {:else if mode === "camera"}
   <section
-    class="relative grid min-h-screen place-items-center overflow-hidden bg-[#020504] max-[900px]:min-h-[46vh]"
-    style="background: linear-gradient(90deg, rgb(255 255 255 / 0.035) 1px, transparent 1px), linear-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px), #020504; background-size: 36px 36px;"
+    class="grid-backdrop relative grid min-h-screen place-items-center overflow-hidden max-[900px]:min-h-[46vh]"
   >
     <VideoFrame
       frameClass="aspect-video w-[min(100%,760px)] bg-black shadow-panel"
@@ -111,8 +110,7 @@
   </section>
 {:else}
   <section
-    class="relative grid min-h-screen place-items-center overflow-hidden bg-[#020504] max-[900px]:min-h-[46vh]"
-    style="background: linear-gradient(90deg, rgb(255 255 255 / 0.035) 1px, transparent 1px), linear-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px), #020504; background-size: 36px 36px;"
+    class="grid-backdrop relative grid min-h-screen place-items-center overflow-hidden max-[900px]:min-h-[46vh]"
   >
     <VideoFrame
       frameClass={debug

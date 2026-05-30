@@ -14,8 +14,8 @@ const AXIS_DOMINANCE = 1.15;
 
 export function createDeviceOrientation(callbacks: DeviceOrientationCallbacks) {
   let listening = false;
-  let permission = $state("Waiting");
-  let orientation = $state<PhysicalOrientation>("unknown");
+  let permission = "Waiting";
+  let orientation: PhysicalOrientation = "unknown";
 
   async function start(): Promise<void> {
     if (listening) {

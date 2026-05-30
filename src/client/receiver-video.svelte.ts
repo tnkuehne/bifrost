@@ -15,6 +15,9 @@ export function createReceiverVideo(callbacks: ReceiverVideoCallbacks) {
   let stream: MediaStream | null = null;
   let incomingFrames = 0;
   let lastIncomingAt = 0;
+  let tracking = false;
+  let frameCallback = 0;
+  let listenerCleanups: Array<() => void> = [];
 
   let incomingSummary = $state("Waiting");
   let pathSummary = $state("Local direct only");
@@ -24,12 +27,19 @@ export function createReceiverVideo(callbacks: ReceiverVideoCallbacks) {
   let relayState = $state("Blocked by configuration");
 
   function setVideo(node: HTMLVideoElement): void {
+    const wasTracking = tracking;
+    if (video && video !== node) {
+      stopTracking();
+    }
     video = node;
     video.autoplay = true;
     video.muted = true;
     video.playsInline = true;
     if (stream) {
       video.srcObject = stream;
+      if (wasTracking) {
+        trackIncomingVideo();
+      }
       tryPlay("video element remounted");
     }
   }
@@ -44,6 +54,7 @@ export function createReceiverVideo(callbacks: ReceiverVideoCallbacks) {
   }
 
   function clear(): void {
+    stopTracking();
     stream = null;
     if (video) {
       video.srcObject = null;
@@ -53,9 +64,12 @@ export function createReceiverVideo(callbacks: ReceiverVideoCallbacks) {
   }
 
   function trackIncomingVideo(): void {
+    stopTracking();
     if (!video) {
       return;
     }
+    tracking = true;
+    const currentVideo = video;
     for (const eventName of [
       "loadedmetadata",
       "playing",
@@ -65,18 +79,31 @@ export function createReceiverVideo(callbacks: ReceiverVideoCallbacks) {
       "resize",
       "error",
     ]) {
-      video.addEventListener(eventName, () => {
+      const onEvent = () => {
         callbacks.onLog(`Video event: ${eventName}`);
         updateElementState();
-      });
+      };
+      currentVideo.addEventListener(eventName, onEvent);
+      listenerCleanups = [
+        ...listenerCleanups,
+        () => currentVideo.removeEventListener(eventName, onEvent),
+      ];
     }
 
     if (!("requestVideoFrameCallback" in HTMLVideoElement.prototype)) {
-      video.addEventListener("resize", () => updateIncomingFormat());
+      const onResize = () => updateIncomingFormat();
+      currentVideo.addEventListener("resize", onResize);
+      listenerCleanups = [
+        ...listenerCleanups,
+        () => currentVideo.removeEventListener("resize", onResize),
+      ];
       return;
     }
 
     const onFrame: VideoFrameRequestCallback = (now) => {
+      if (!tracking) {
+        return;
+      }
       incomingFrames += 1;
       if (!lastIncomingAt) {
         lastIncomingAt = now;
@@ -88,9 +115,9 @@ export function createReceiverVideo(callbacks: ReceiverVideoCallbacks) {
         updateIncomingFormat(fps);
         updateElementState();
       }
-      video?.requestVideoFrameCallback(onFrame);
+      frameCallback = currentVideo.requestVideoFrameCallback(onFrame);
     };
-    video.requestVideoFrameCallback(onFrame);
+    frameCallback = currentVideo.requestVideoFrameCallback(onFrame);
   }
 
   function updateIncomingFormat(fps?: number): void {
@@ -138,6 +165,18 @@ export function createReceiverVideo(callbacks: ReceiverVideoCallbacks) {
 
   function updateElementState(): void {
     callbacks.onLog(`Video element: ${getVideoElementState(video)}`);
+  }
+
+  function stopTracking(): void {
+    tracking = false;
+    for (const cleanup of listenerCleanups) {
+      cleanup();
+    }
+    listenerCleanups = [];
+    if (frameCallback && video && "cancelVideoFrameCallback" in video) {
+      video.cancelVideoFrameCallback(frameCallback);
+    }
+    frameCallback = 0;
   }
 
   return {
