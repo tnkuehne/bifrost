@@ -19,9 +19,8 @@
   ],
   "assets": {
     "directory": "./dist/client",
-    "binding": "ASSETS",
-    "html_handling": "none",
-    "run_worker_first": true,
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
   },
   "durable_objects": {
     "bindings": [
@@ -57,6 +56,9 @@
       },
     },
   ],
+  "secrets": {
+    "required": ["ROOM_SIGNING_SECRET"],
+  },
   "observability": {
     "enabled": true,
   },
@@ -72,13 +74,6 @@
    * databases, object storage, AI inference, real-time communication and more.
    * https://developers.cloudflare.com/workers/runtime-apis/bindings/
    */
-  /**
-   * Environment Variables
-   * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
-   * Note: Use secrets to store sensitive data.
-   * https://developers.cloudflare.com/workers/configuration/secrets/
-   */
-  // "vars": {  "MY_VARIABLE": "production_value" }
   /**
    * Service Bindings (communicate between multiple Workers)
    * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings

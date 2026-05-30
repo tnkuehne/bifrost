@@ -1,5 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 import { Hono } from "hono";
+import {
+  makeRoomId,
+  readSignedRoomHandle,
+  ROOM_HANDLE_PATTERN,
+  ROOM_ID_PATTERN,
+  signRoomId,
+} from "./room-signing";
 
 type Role = "receiver" | "camera";
 type ClientMode = "camera" | "preview" | "obs";
@@ -18,29 +25,9 @@ interface SignalEnvelope {
   [key: string]: unknown;
 }
 
-const ROOM_PATTERN = /^[A-Za-z0-9_-]{22,64}$/;
 const ROLES = new Set<Role>(["receiver", "camera"]);
 const MAX_SIGNAL_MESSAGE_LENGTH = 64 * 1024;
-
-async function serveApp(request: Request, env: Env): Promise<Response> {
-  const response = await env.ASSETS.fetch(
-    new Request(`${new URL(request.url).origin}/index.html`, request),
-  );
-  const headers = new Headers(response.headers);
-  headers.set("cache-control", "no-store");
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
-}
-
-function makeRoomId(): string {
-  const bytes = new Uint8Array(20);
-  crypto.getRandomValues(bytes);
-  const binary = String.fromCharCode(...bytes);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
+const MAX_ROOM_SOCKETS = 4;
 
 function clientRateKey(request: Request): string {
   const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
@@ -80,7 +67,7 @@ export class SignalingRoom extends DurableObject<Env> {
 
     const url = new URL(request.url);
     const room = url.searchParams.get("room");
-    if (!room || !ROOM_PATTERN.test(room)) {
+    if (!room || !ROOM_ID_PATTERN.test(room)) {
       return new Response("Invalid room", { status: 400 });
     }
 
@@ -91,6 +78,9 @@ export class SignalingRoom extends DurableObject<Env> {
 
     const clientMode = this.clientModeFor(role, url.searchParams.get("client"));
     const active = this.prepareForJoin(role, clientMode);
+    if (this.connectedSocketCount() >= MAX_ROOM_SOCKETS) {
+      return new Response("Room connection limit reached", { status: 429 });
+    }
 
     const pair = new WebSocketPair();
     const client = pair[0];
@@ -240,18 +230,21 @@ export class SignalingRoom extends DurableObject<Env> {
             activeReceiver: "obs",
             peers: this.connectedRoles(),
           });
+        } else if (state.clientMode === "preview") {
+          this.replaceSocket(socket, "Replaced by a new OBS receiver");
         }
       }
       return true;
     }
 
     if (this.hasActiveObsReceiver()) {
+      this.replaceInactivePreviewReceivers("Replaced by a new preview receiver");
       return false;
     }
 
     for (const socket of this.ctx.getWebSockets()) {
       const state = getState(socket);
-      if (state?.role === "receiver" && state.active) {
+      if (state?.role === "receiver" && state.clientMode === "preview") {
         this.replaceSocket(socket, "Replaced by a new preview receiver");
       }
     }
@@ -266,6 +259,26 @@ export class SignalingRoom extends DurableObject<Env> {
       }
     }
     return false;
+  }
+
+  private replaceInactivePreviewReceivers(reason: string): void {
+    for (const socket of this.ctx.getWebSockets()) {
+      const state = getState(socket);
+      if (state?.role === "receiver" && state.clientMode === "preview" && !state.active) {
+        this.replaceSocket(socket, reason);
+      }
+    }
+  }
+
+  private connectedSocketCount(): number {
+    let count = 0;
+    for (const socket of this.ctx.getWebSockets()) {
+      const state = getState(socket);
+      if (state && !state.replacing) {
+        count += 1;
+      }
+    }
+    return count;
   }
 
   private promotePreviewReceiver(exclude: WebSocket): WebSocket | null {
@@ -362,7 +375,14 @@ app.post("/api/rooms", async (c) => {
   }
 
   const url = new URL(c.req.url);
-  const room = makeRoomId();
+  let room: string;
+  try {
+    room = await signRoomId(makeRoomId(), c.env);
+  } catch (error) {
+    console.error(error);
+    return c.text("Room signing is not configured", 500);
+  }
+
   return c.json({
     room,
     receiverUrl: `${url.origin}/?room=${room}`,
@@ -376,15 +396,26 @@ app.get("/api/rooms/:room/:role", async (c) => {
     return c.text("Expected WebSocket upgrade", 426);
   }
 
-  const room = c.req.param("room");
+  const roomHandle = c.req.param("room");
   const role = c.req.param("role");
-  if (!ROOM_PATTERN.test(room) || !isRole(role)) {
+  if (!ROOM_HANDLE_PATTERN.test(roomHandle) || !isRole(role)) {
     return c.text("Invalid signaling URL", 400);
   }
 
   const rateLimitResponse = await rateLimit(c.env.SIGNALING_RATE_LIMITER, clientRateKey(c.req.raw));
   if (rateLimitResponse) {
     return rateLimitResponse;
+  }
+
+  let room: string | null;
+  try {
+    room = await readSignedRoomHandle(roomHandle, c.env);
+  } catch (error) {
+    console.error(error);
+    return c.text("Room signing is not configured", 500);
+  }
+  if (!room) {
+    return c.text("Invalid signaling URL", 403);
   }
 
   const id = c.env.SIGNALING_ROOM.idFromName(room);
@@ -396,12 +427,6 @@ app.get("/api/rooms/:room/:role", async (c) => {
 });
 
 app.all("/api/*", (c) => c.text("Not found", 404));
-
-app.get("/assets/*", (c) => c.env.ASSETS.fetch(c.req.raw));
-
-app.get("/", (c) => serveApp(c.req.raw, c.env));
-app.get("/camera", (c) => serveApp(c.req.raw, c.env));
-app.get("/obs", (c) => serveApp(c.req.raw, c.env));
 
 app.notFound((c) => c.text("Not found", 404));
 

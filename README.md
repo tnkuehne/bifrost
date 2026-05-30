@@ -41,6 +41,12 @@ The `/obs` page renders only the incoming video. It does not show controls, debu
 
 ## Usage
 
+Create a local `.env` with a private signing secret:
+
+```sh
+printf 'ROOM_SIGNING_SECRET=%s\n' "$(openssl rand -base64 32)" > .env
+```
+
 ```sh
 pnpm run build
 pnpm run dev
@@ -51,6 +57,13 @@ Open:
 - `/` on the computer to create a room, show the phone QR code, and preview the stream while OBS is absent.
 - `/camera?room=...` on the phone browser.
 - `/obs?room=...` in OBS Browser Source for the clean video-only receiver. When OBS connects, it becomes the active receiver without requiring the `/` page to close.
+
+For deployment, configure the same required secret in Cloudflare before deploying:
+
+```sh
+pnpm exec wrangler secret put ROOM_SIGNING_SECRET
+pnpm exec wrangler deploy
+```
 
 ## Quality
 
