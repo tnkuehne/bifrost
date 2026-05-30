@@ -1,11 +1,12 @@
 import { onCleanup, useDebounce, useEventListener, useInterval } from "runed";
 import { createRoom as createSignalingRoom, openSignaling } from "./signaling";
-import type { Mode, Role, SignalMessage, StatusKind } from "./types";
+import type { Mode, Role, SignalMessage, StatusKind, VideoRotation } from "./types";
 import { errorMessage } from "./utils";
 import { createLocalOnlyPeerConnection, isLocalOnlyCandidate } from "./peer-connection";
 import { createReceiverVideo } from "./receiver-video.svelte";
 import { createLocalCamera } from "./local-camera.svelte";
 import { createPairingLinks } from "./pairing-links.svelte";
+import { createDeviceOrientation } from "./device-orientation.svelte";
 import { persistDebugInUrl, persistRoomInUrl, readSessionRoute } from "./session-url";
 
 export function createWebcamSession() {
@@ -20,6 +21,7 @@ export function createWebcamSession() {
   let receiverActive = $state(mode === "obs");
   let debug = $state(route.debug);
   let hasRemoteVideo = $state(false);
+  let remoteVideoRotation = $state<VideoRotation>(0);
 
   let statusKind = $state<StatusKind>("waiting");
   let statusTitle = $state("Starting");
@@ -34,7 +36,12 @@ export function createWebcamSession() {
   });
   const localCamera = createLocalCamera({
     onMeta: (settings) => sendSignal({ type: "camera-meta", settings }),
+    onRotation: (rotation) => sendSignal({ type: "camera-orientation", rotation }),
     onReady: () => setStatus("waiting", "Waiting for receiver", "Keep this page open."),
+    onLog: (message) => log(message),
+  });
+  const deviceOrientation = createDeviceOrientation({
+    onOrientation: (orientation) => localCamera.setPhysicalOrientation(orientation),
     onLog: (message) => log(message),
   });
   const pairingLinks = createPairingLinks({
@@ -69,6 +76,11 @@ export function createWebcamSession() {
     { once: true },
   );
   useEventListener(window, ["orientationchange", "resize"], () => scheduleCameraRefresh());
+  useEventListener(document, ["pointerdown", "touchend"], () => {
+    enableDeviceOrientation().catch((error) =>
+      log(`Device orientation permission failed: ${errorMessage(error)}`),
+    );
+  });
   useEventListener(
     () => globalThis.screen?.orientation ?? null,
     "change",
@@ -77,6 +89,7 @@ export function createWebcamSession() {
   onCleanup(() => {
     closePeerConnection();
     ws?.close();
+    deviceOrientation.stop();
     localCamera.stop();
   });
 
@@ -269,6 +282,11 @@ export function createWebcamSession() {
       return;
     }
 
+    if (message.type === "camera-orientation") {
+      remoteVideoRotation = message.rotation ?? 0;
+      return;
+    }
+
     if (message.type === "error") {
       fail(String(message.message || "Signaling error"));
     }
@@ -412,6 +430,12 @@ export function createWebcamSession() {
     refreshCameraStatus();
   }
 
+  async function enableDeviceOrientation(): Promise<void> {
+    if (mode === "camera") {
+      await deviceOrientation.start();
+    }
+  }
+
   async function switchCamera(): Promise<void> {
     const sender = pc?.getSenders().find((item) => item.track?.kind === "video");
     await localCamera.switchCamera(sender);
@@ -528,14 +552,22 @@ export function createWebcamSession() {
   }
 
   function startCameraFromUi(): void {
-    localCamera.start().catch((error) => fail(errorMessage(error)));
+    enableDeviceOrientation()
+      .catch((error) => log(`Device orientation permission failed: ${errorMessage(error)}`))
+      .finally(() => localCamera.start().catch((error) => fail(errorMessage(error))));
   }
 
   function switchCameraFromUi(): void {
+    enableDeviceOrientation().catch((error) =>
+      log(`Device orientation permission failed: ${errorMessage(error)}`),
+    );
     switchCamera().catch((error) => fail(errorMessage(error)));
   }
 
   function toggleQualityFromUi(): void {
+    enableDeviceOrientation().catch((error) =>
+      log(`Device orientation permission failed: ${errorMessage(error)}`),
+    );
     toggleQuality().catch((error) => fail(errorMessage(error)));
   }
 
@@ -566,6 +598,9 @@ export function createWebcamSession() {
     },
     get hasRemoteVideo() {
       return hasRemoteVideo;
+    },
+    get remoteVideoRotation() {
+      return remoteVideoRotation;
     },
     get statusKind() {
       return statusKind;

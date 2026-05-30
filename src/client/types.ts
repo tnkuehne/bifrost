@@ -2,6 +2,8 @@ export type Mode = "receiver" | "camera" | "obs";
 export type Role = "receiver" | "camera";
 export type StatusKind = "waiting" | "good" | "bad";
 export type CameraQuality = "4k" | "fullhd";
+export type PhysicalOrientation = "portrait" | "landscape-left" | "landscape-right" | "unknown";
+export type VideoRotation = -90 | 0 | 90;
 
 export interface RoomResponse {
   room: string;
@@ -26,6 +28,7 @@ export interface SignalMessage {
   description?: RTCSessionDescriptionInit;
   candidate?: RTCIceCandidateInit;
   settings?: CameraSettingsMessage;
+  rotation?: VideoRotation;
   message?: string;
 }
 

@@ -1,7 +1,7 @@
 <svelte:options runes={true} />
 
 <script lang="ts">
-  import type { Mode } from "../types";
+  import type { Mode, VideoRotation } from "../types";
   import switchCameraUrl from "../assets/switch-camera.svg";
   import VideoFrame from "./VideoFrame.svelte";
 
@@ -10,6 +10,7 @@
     debug?: boolean;
     pairing?: boolean;
     hasLocalStream?: boolean;
+    remoteVideoRotation?: VideoRotation;
     setRemoteVideo?: (node: HTMLVideoElement) => void;
     setLocalVideo?: (node: HTMLVideoElement) => void;
     onSwitchCamera?: () => void;
@@ -22,6 +23,7 @@
     debug = false,
     pairing = false,
     hasLocalStream = false,
+    remoteVideoRotation = 0,
     setRemoteVideo = () => {},
     setLocalVideo = () => {},
     onSwitchCamera = () => {},
@@ -35,6 +37,7 @@
     <VideoFrame
       frameClass="h-[min(100vh,calc(100vw*9/16))] w-[min(100vw,calc(100vh*16/9))] bg-black shadow-panel"
       setVideo={setRemoteVideo}
+      rotation={remoteVideoRotation}
     />
   </section>
 {:else if mode === "obs"}
@@ -44,6 +47,7 @@
     <VideoFrame
       frameClass="h-screen w-screen bg-black shadow-none [aspect-ratio:auto]"
       setVideo={setRemoteVideo}
+      rotation={remoteVideoRotation}
     />
   </section>
 {:else if mode === "camera" && !debug}
@@ -115,6 +119,7 @@
         ? "aspect-video h-auto w-[min(100%,1280px)] bg-black shadow-panel"
         : "h-[min(100vh,calc(100vw*9/16))] w-[min(100vw,calc(100vh*16/9))] bg-black shadow-panel"}
       setVideo={setRemoteVideo}
+      rotation={remoteVideoRotation}
     />
   </section>
 {/if}

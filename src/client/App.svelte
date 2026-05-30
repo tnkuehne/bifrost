@@ -34,6 +34,7 @@
       debug={session.debug}
       pairing={session.pairing}
       hasLocalStream={session.hasStream}
+      remoteVideoRotation={session.remoteVideoRotation}
       setRemoteVideo={session.setRemoteVideo}
       setLocalVideo={session.setLocalVideo}
       onSwitchCamera={session.switchCameraFromUi}

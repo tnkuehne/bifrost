@@ -1,4 +1,9 @@
-import type { CameraQuality, CameraSettingsMessage } from "./types";
+import type {
+  CameraQuality,
+  CameraSettingsMessage,
+  PhysicalOrientation,
+  VideoRotation,
+} from "./types";
 import { errorMessage, round } from "./utils";
 import {
   getCameraConstraints,
@@ -10,6 +15,7 @@ import {
 
 type LocalCameraCallbacks = {
   onMeta: (settings: CameraSettingsMessage) => void;
+  onRotation: (rotation: VideoRotation) => void;
   onReady: () => void;
   onLog: (message: string) => void;
 };
@@ -19,6 +25,8 @@ export function createLocalCamera(callbacks: LocalCameraCallbacks) {
   let stream = $state<MediaStream | null>(null);
   let facingMode: "environment" | "user" = "environment";
   let quality = $state<CameraQuality>("4k");
+  let physicalOrientation: PhysicalOrientation = "unknown";
+  let rotation: VideoRotation = 0;
   let summary = $state("Waiting");
   let format = $state("Waiting");
   let senderFormat = $state("Balanced adaptive");
@@ -84,6 +92,7 @@ export function createLocalCamera(callbacks: LocalCameraCallbacks) {
     if (settings) {
       callbacks.onMeta(settings);
     }
+    publishRotation(settings, true);
   }
 
   function renderSettings(
@@ -112,6 +121,11 @@ export function createLocalCamera(callbacks: LocalCameraCallbacks) {
     attachPreview();
   }
 
+  function setPhysicalOrientation(next: PhysicalOrientation): void {
+    physicalOrientation = next;
+    publishRotation(readSettings());
+  }
+
   function stop(): void {
     stream?.getTracks().forEach((track) => track.stop());
     stream = null;
@@ -137,6 +151,16 @@ export function createLocalCamera(callbacks: LocalCameraCallbacks) {
     }
   }
 
+  function publishRotation(settings: CameraSettingsMessage | null, force = false): void {
+    const next = getDisplayRotation(physicalOrientation, settings);
+    if (!force && next === rotation) {
+      return;
+    }
+    rotation = next;
+    callbacks.onRotation(next);
+    callbacks.onLog(`Video display rotation: ${next}deg.`);
+  }
+
   return {
     get hasStream() {
       return Boolean(stream);
@@ -156,6 +180,9 @@ export function createLocalCamera(callbacks: LocalCameraCallbacks) {
     get qualityLabel() {
       return getQualityShortLabel(quality);
     },
+    get rotation() {
+      return rotation;
+    },
     get trackState() {
       return trackState;
     },
@@ -167,6 +194,26 @@ export function createLocalCamera(callbacks: LocalCameraCallbacks) {
     publishSettings,
     renderSettings,
     setVideo,
+    setPhysicalOrientation,
     stop,
   };
+}
+
+function getDisplayRotation(
+  physicalOrientation: PhysicalOrientation,
+  settings: CameraSettingsMessage | null,
+): VideoRotation {
+  if (!settings?.width || !settings.height || settings.width >= settings.height) {
+    return 0;
+  }
+
+  if (physicalOrientation === "landscape-left") {
+    return 90;
+  }
+
+  if (physicalOrientation === "landscape-right") {
+    return -90;
+  }
+
+  return 0;
 }
