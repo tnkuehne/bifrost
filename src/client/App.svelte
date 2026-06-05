@@ -10,6 +10,7 @@
   import StatusBlock from "./components/StatusBlock.svelte";
   import SummaryPanel from "./components/SummaryPanel.svelte";
   import Toolbar from "./components/Toolbar.svelte";
+  import WarningBlock from "./components/WarningBlock.svelte";
   import githubMarkUrl from "./assets/github-mark.svg";
   import { createWebcamSession } from "./session.svelte";
 
@@ -45,6 +46,10 @@
 
   {#snippet panel()}
     <div class="grid gap-3">
+      {#if session.browserWarning}
+        <WarningBlock message={session.browserWarning} />
+      {/if}
+
       {#if session.mode === "receiver"}
         {#if session.obsReceiverActive}
           <div class="grid justify-items-center gap-2 text-center">

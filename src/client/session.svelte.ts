@@ -8,6 +8,7 @@ import { createLocalCamera } from "./local-camera.svelte";
 import { createPairingLinks } from "./pairing-links.svelte";
 import { createDeviceOrientation } from "./device-orientation.svelte";
 import { persistDebugInUrl, persistRoomInUrl, readSessionRoute } from "./session-url";
+import { getBrowserWarning } from "./browser-support";
 
 export function createWebcamSession() {
   const route = readSessionRoute(location);
@@ -26,6 +27,7 @@ export function createWebcamSession() {
   let statusKind = $state<StatusKind>("waiting");
   let statusTitle = $state("Starting");
   let statusDetail = $state("");
+  const browserWarning = getBrowserWarning();
 
   const receiverVideo = createReceiverVideo({
     onRelayDetected: () => {
@@ -628,6 +630,9 @@ export function createWebcamSession() {
     },
     get statusDetail() {
       return statusDetail;
+    },
+    get browserWarning() {
+      return browserWarning;
     },
     get cameraQr() {
       return pairingLinks.cameraQr;
