@@ -36,7 +36,7 @@ function manifest() {
     {
       name: "Bifrost",
       short_name: "Bifrost",
-      start_url: "/",
+      scope: "/",
       display: "standalone",
       background_color: backgroundColor,
       theme_color: backgroundColor,
