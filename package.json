@@ -20,6 +20,7 @@
     "runed": "^0.37.1"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tailwindcss/vite": "^4.3.0",
     "@tsconfig/strictest": "^2.0.8",
