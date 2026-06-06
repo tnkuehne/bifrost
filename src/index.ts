@@ -93,12 +93,21 @@ export class SignalingRoom extends DurableObject<Env> {
       room,
       connectedAt: Date.now(),
     });
+    const peers = this.connectedRoles();
+    console.info("signaling_joined", { room, role, clientMode, active, peers });
+    if (active && peers.includes("camera") && peers.includes("receiver")) {
+      console.info("room_paired", {
+        room,
+        joinedRole: role,
+        receiver: this.hasActiveObsReceiver() ? "obs" : "preview",
+      });
+    }
 
     this.send(server, {
       type: "joined",
       role,
       clientMode,
-      peers: this.connectedRoles(),
+      peers,
       ...(role === "receiver" ? { receiverActive: active } : {}),
     });
     if (active) {
@@ -151,6 +160,44 @@ export class SignalingRoom extends DurableObject<Env> {
 
     if (typeof envelope.type !== "string") {
       this.send(ws, { type: "error", message: "Signal is missing a type" });
+      return;
+    }
+
+    if (envelope.type === "webrtc-connected") {
+      console.info("webrtc_connected", {
+        room: currentState.room,
+        role: currentState.role,
+        clientMode: currentState.clientMode,
+      });
+      return;
+    }
+
+    if (envelope.type === "camera-ready") {
+      console.info("camera_ready", {
+        room: currentState.room,
+        role: currentState.role,
+        clientMode: currentState.clientMode,
+      });
+      return;
+    }
+
+    if (envelope.type === "client-failed") {
+      console.info("client_failed", {
+        room: currentState.room,
+        role: currentState.role,
+        clientMode: currentState.clientMode,
+        reason: typeof envelope["reason"] === "string" ? envelope["reason"] : "unknown",
+      });
+      return;
+    }
+
+    if (envelope.type === "webrtc-failed") {
+      console.info("webrtc_failed", {
+        room: currentState.room,
+        role: currentState.role,
+        clientMode: currentState.clientMode,
+        reason: typeof envelope["reason"] === "string" ? envelope["reason"] : "unknown",
+      });
       return;
     }
 
@@ -375,13 +422,15 @@ app.post("/api/rooms", async (c) => {
   }
 
   const url = new URL(c.req.url);
+  const roomId = makeRoomId();
   let room: string;
   try {
-    room = await signRoomId(makeRoomId(), c.env);
+    room = await signRoomId(roomId, c.env);
   } catch (error) {
     console.error(error);
     return c.text("Room signing is not configured", 500);
   }
+  console.info("room_created", { room: roomId });
 
   return c.json({
     room,

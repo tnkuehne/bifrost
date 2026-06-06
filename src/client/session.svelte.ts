@@ -31,7 +31,10 @@ export function createWebcamSession() {
 
   const receiverVideo = createReceiverVideo({
     onRelayDetected: () => {
-      fail("A relay candidate was selected. Closing instead of carrying media through a relay.");
+      fail(
+        "A relay candidate was selected. Closing instead of carrying media through a relay.",
+        "relay_candidate",
+      );
       closePeerConnection();
     },
     onLog: (message) => log(message),
@@ -47,7 +50,7 @@ export function createWebcamSession() {
     onLog: (message) => log(message),
   });
   const pairingLinks = createPairingLinks({
-    onError: (message) => fail(message),
+    onError: (message) => fail(message, "room_create"),
     onLog: (message) => log(message),
   });
 
@@ -96,7 +99,7 @@ export function createWebcamSession() {
   });
 
   function mount(): void {
-    init().catch((error: unknown) => fail(errorMessage(error)));
+    init().catch((error: unknown) => fail(errorMessage(error), "client_error"));
   }
 
   async function init(): Promise<void> {
@@ -105,7 +108,10 @@ export function createWebcamSession() {
     }
 
     if (!room) {
-      fail("Missing room. Open the receiver page first and use its phone or OBS link.");
+      fail(
+        "Missing room. Open the receiver page first and use its phone or OBS link.",
+        "missing_room",
+      );
       return;
     }
 
@@ -148,6 +154,9 @@ export function createWebcamSession() {
       onOpen: (clientMode) => {
         log(`Signaling connected as ${role} (${clientMode}).`);
         sendSignal({ type: "hello" });
+        if (browserWarning) {
+          sendSignal({ type: "client-failed", reason: "unsupported_browser" });
+        }
       },
       onMessage: (message) => {
         void handleSignal(message);
@@ -174,13 +183,13 @@ export function createWebcamSession() {
           return;
         }
         if (!event.wasClean) {
-          fail(`Signaling closed (${event.code}).`);
+          fail(`Signaling closed (${event.code}).`, "signaling_closed");
         }
       },
       onError: () => {
         log("Signaling WebSocket error.");
         if (pc?.connectionState !== "connected") {
-          fail("Signaling WebSocket failed.");
+          fail("Signaling WebSocket failed.", "signaling_closed");
         }
       },
     });
@@ -269,7 +278,7 @@ export function createWebcamSession() {
 
     if (message.type === "answer" && role === "receiver") {
       if (!message.description) {
-        fail("Answer is missing a session description.");
+        fail("Answer is missing a session description.", "invalid_signal");
         return;
       }
       const peer = await ensurePeerConnection();
@@ -295,7 +304,7 @@ export function createWebcamSession() {
     }
 
     if (message.type === "error") {
-      fail(String(message.message || "Signaling error"));
+      fail(String(message.message || "Signaling error"), "signaling_error");
     }
   }
 
@@ -309,13 +318,16 @@ export function createWebcamSession() {
         sendSignal({ type: "ice", candidate });
       },
       onRejectedCandidate: () => {
-        fail("A non-local ICE candidate was produced. Closing instead of using it.");
+        fail(
+          "A non-local ICE candidate was produced. Closing instead of using it.",
+          "relay_candidate",
+        );
         closePeerConnection();
       },
       onTrack: (event) => {
         const [remoteStream] = event.streams;
         if (!remoteStream || !receiverVideo.attachStream(remoteStream)) {
-          fail("Remote video track arrived without a media stream.");
+          fail("Remote video track arrived without a media stream.", "media_track");
           return;
         }
         hasRemoteVideo = true;
@@ -327,18 +339,25 @@ export function createWebcamSession() {
       onConnectionState: (state) => {
         log(`Peer connection: ${state}`);
         if (state === "connected") {
+          sendSignal({ type: "webrtc-connected" });
           refreshConnectedStatus();
           startStatsPolling();
         }
-        if (["failed", "closed"].includes(state)) {
-          fail("Direct WebRTC connection failed. No relay fallback is configured.");
+        if (state === "failed") {
+          sendSignal({ type: "webrtc-failed", reason: "connection_state" });
+          fail(
+            "Direct WebRTC connection failed. No relay fallback is configured.",
+            "webrtc_failed",
+          );
         }
       },
       onIceConnectionState: (state) => {
         log(`ICE: ${state}`);
         if (state === "failed") {
+          sendSignal({ type: "webrtc-failed", reason: "ice_failed" });
           fail(
             "ICE failed locally. Check that both devices are on the same LAN or USB-tethered network.",
+            "webrtc_failed",
           );
         }
       },
@@ -358,7 +377,7 @@ export function createWebcamSession() {
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
     if (!peer.localDescription) {
-      fail("Could not create a receiver offer.");
+      fail("Could not create a receiver offer.", "offer_create");
       return;
     }
     sendSignal({ type: "offer", description: peer.localDescription });
@@ -381,7 +400,7 @@ export function createWebcamSession() {
     const answer = await peer.createAnswer();
     await peer.setLocalDescription(answer);
     if (!peer.localDescription) {
-      fail("Could not create a camera answer.");
+      fail("Could not create a camera answer.", "answer_create");
       return;
     }
     sendSignal({ type: "answer", description: peer.localDescription });
@@ -392,7 +411,10 @@ export function createWebcamSession() {
 
   async function receiveIceCandidate(candidate: RTCIceCandidateInit | null): Promise<void> {
     if (!isLocalOnlyCandidate(candidate)) {
-      fail("A peer sent a non-local ICE candidate. Closing instead of using it.");
+      fail(
+        "A peer sent a non-local ICE candidate. Closing instead of using it.",
+        "relay_candidate",
+      );
       closePeerConnection();
       return;
     }
@@ -443,7 +465,14 @@ export function createWebcamSession() {
     await enableDeviceOrientation().catch((error) =>
       log(`Device orientation permission failed: ${errorMessage(error)}`),
     );
-    const stream = await localCamera.start();
+    let stream: MediaStream;
+    try {
+      stream = await localCamera.start();
+    } catch (error) {
+      sendSignal({ type: "client-failed", reason: "camera_permission" });
+      throw error;
+    }
+    sendSignal({ type: "camera-ready" });
     await enableDeviceOrientation().catch((error) =>
       log(`Device orientation permission failed: ${errorMessage(error)}`),
     );
@@ -538,7 +567,8 @@ export function createWebcamSession() {
     setStatus("good", "OBS is handling the camera stream", "You can close this page.");
   }
 
-  function fail(message: string): void {
+  function fail(message: string, reason = "client_error"): void {
+    sendSignal({ type: "client-failed", reason });
     setStatus("bad", "Failed", message);
     log(message);
   }
@@ -574,21 +604,21 @@ export function createWebcamSession() {
   }
 
   function startCameraFromUi(): void {
-    startCamera().catch((error) => fail(errorMessage(error)));
+    startCamera().catch((error) => fail(errorMessage(error), "camera_permission"));
   }
 
   function switchCameraFromUi(): void {
     enableDeviceOrientation().catch((error) =>
       log(`Device orientation permission failed: ${errorMessage(error)}`),
     );
-    switchCamera().catch((error) => fail(errorMessage(error)));
+    switchCamera().catch((error) => fail(errorMessage(error), "camera_control"));
   }
 
   function toggleQualityFromUi(): void {
     enableDeviceOrientation().catch((error) =>
       log(`Device orientation permission failed: ${errorMessage(error)}`),
     );
-    toggleQuality().catch((error) => fail(errorMessage(error)));
+    toggleQuality().catch((error) => fail(errorMessage(error), "camera_control"));
   }
 
   return {

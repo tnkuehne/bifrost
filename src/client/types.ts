@@ -30,6 +30,7 @@ export interface SignalMessage {
   settings?: CameraSettingsMessage;
   rotation?: VideoRotation;
   message?: string;
+  reason?: string;
 }
 
 export interface CandidateReport {
