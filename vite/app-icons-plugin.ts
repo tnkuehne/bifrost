@@ -4,114 +4,90 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { HtmlTagDescriptor, Plugin } from "vite";
 
-type IconPurpose = "any" | "maskable";
+const backgroundColor = "#f5faf7";
+const manifestPath = "/assets/manifest.webmanifest";
+const sourcePath = fileURLToPath(new URL("../src/client/assets/webcam.svg", import.meta.url));
 
-type PngIcon = {
-  path: `/${string}`;
-  size: number;
-  purpose?: IconPurpose;
-  paddingRatio?: number;
-};
+const appleTouchIcon = { path: "/assets/apple-touch-icon.png", size: 180 } as const;
+const manifestIcons = [
+  { path: "/assets/icon-192.png", size: 192, purpose: "any" },
+  { path: "/assets/icon-512.png", size: 512, purpose: "any" },
+  { path: "/assets/icon-maskable-512.png", size: 512, purpose: "maskable", paddingRatio: 0.1 },
+] as const;
+const icons = [appleTouchIcon, ...manifestIcons] as const;
 
-type AppIconsPluginOptions = {
-  backgroundColor: string;
-  display?: "fullscreen" | "standalone" | "minimal-ui" | "browser";
-  icons?: PngIcon[];
-  name: string;
-  shortName?: string;
-  source: URL;
-  startUrl?: string;
-  themeColor?: string;
-};
+function renderIcon(icon: (typeof icons)[number]) {
+  const svg = readFileSync(sourcePath, "utf8");
+  const padding = Math.round(icon.size * ("paddingRatio" in icon ? icon.paddingRatio : 0));
+  const imageSize = icon.size - padding * 2;
+  const imageHref = Buffer.from(svg).toString("base64");
+  const wrappedSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${icon.size}" height="${icon.size}" viewBox="0 0 ${icon.size} ${icon.size}">
+      <rect width="${icon.size}" height="${icon.size}" fill="${backgroundColor}" />
+      <image href="data:image/svg+xml;base64,${imageHref}" x="${padding}" y="${padding}" width="${imageSize}" height="${imageSize}" preserveAspectRatio="xMidYMid meet" />
+    </svg>
+  `;
 
-const defaultIcons: PngIcon[] = [
-  { path: "/apple-touch-icon.png", size: 180 },
-  { path: "/icon-192.png", size: 192, purpose: "any" },
-  { path: "/icon-512.png", size: 512, purpose: "any" },
-  { path: "/icon-maskable-512.png", size: 512, purpose: "maskable", paddingRatio: 0.1 },
-];
+  return new Resvg(wrappedSvg).render().asPng();
+}
 
-const manifestPath = "/manifest.webmanifest";
+function manifest() {
+  return JSON.stringify(
+    {
+      name: "Bifrost",
+      short_name: "Bifrost",
+      start_url: "/",
+      display: "standalone",
+      background_color: backgroundColor,
+      theme_color: backgroundColor,
+      icons: manifestIcons.map((icon) => ({
+        src: icon.path,
+        sizes: `${icon.size}x${icon.size}`,
+        type: "image/png",
+        purpose: icon.purpose,
+      })),
+    },
+    null,
+    2,
+  );
+}
 
-export function appIconsPlugin(options: AppIconsPluginOptions): Plugin {
-  const sourcePath = fileURLToPath(options.source);
-  const icons = options.icons ?? defaultIcons;
+function htmlTags(html: string): HtmlTagDescriptor[] {
+  const tags: HtmlTagDescriptor[] = [];
 
-  function renderIcon(icon: PngIcon) {
-    const svg = readFileSync(sourcePath, "utf8");
-    const padding = Math.round(icon.size * (icon.paddingRatio ?? 0));
-    const imageSize = icon.size - padding * 2;
-    const imageHref = Buffer.from(svg).toString("base64");
-    const wrappedSvg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${icon.size}" height="${icon.size}" viewBox="0 0 ${icon.size} ${icon.size}">
-        <rect width="${icon.size}" height="${icon.size}" fill="${options.backgroundColor}" />
-        <image href="data:image/svg+xml;base64,${imageHref}" x="${padding}" y="${padding}" width="${imageSize}" height="${imageSize}" preserveAspectRatio="xMidYMid meet" />
-      </svg>
-    `;
-
-    return new Resvg(wrappedSvg).render().asPng();
-  }
-
-  function manifest() {
-    return JSON.stringify(
-      {
-        name: options.name,
-        short_name: options.shortName ?? options.name,
-        start_url: options.startUrl ?? "/",
-        display: options.display ?? "standalone",
-        background_color: options.backgroundColor,
-        theme_color: options.themeColor ?? options.backgroundColor,
-        icons: icons
-          .filter((icon) => icon.path !== "/apple-touch-icon.png")
-          .map((icon) => ({
-            src: icon.path,
-            sizes: `${icon.size}x${icon.size}`,
-            type: "image/png",
-            ...(icon.purpose ? { purpose: icon.purpose } : {}),
-          })),
+  if (!html.includes('rel="apple-touch-icon"')) {
+    tags.push({
+      tag: "link",
+      attrs: {
+        rel: "apple-touch-icon",
+        sizes: "180x180",
+        href: appleTouchIcon.path,
       },
-      null,
-      2,
-    );
+      injectTo: "head",
+    });
   }
 
-  function htmlTags(html: string): HtmlTagDescriptor[] {
-    const tags: HtmlTagDescriptor[] = [];
-
-    if (!html.includes('rel="apple-touch-icon"')) {
-      tags.push({
-        tag: "link",
-        attrs: {
-          rel: "apple-touch-icon",
-          sizes: "180x180",
-          href: "/apple-touch-icon.png",
-        },
-        injectTo: "head",
-      });
-    }
-
-    if (!html.includes('rel="manifest"')) {
-      tags.push({
-        tag: "link",
-        attrs: {
-          rel: "manifest",
-          href: manifestPath,
-        },
-        injectTo: "head",
-      });
-    }
-
-    return tags;
+  if (!html.includes('rel="manifest"')) {
+    tags.push({
+      tag: "link",
+      attrs: {
+        rel: "manifest",
+        href: manifestPath,
+      },
+      injectTo: "head",
+    });
   }
 
+  return tags;
+}
+
+export function appIconsPlugin(): Plugin {
   return {
     name: "app-icons",
     buildStart() {
       this.addWatchFile(sourcePath);
     },
     configureServer(server) {
-      const iconRoutes = new Map<string, PngIcon>(icons.map((icon) => [icon.path, icon]));
-
       server.middlewares.use((request, response, next) => {
         const path = request.url?.split("?", 1)[0];
 
@@ -123,7 +99,7 @@ export function appIconsPlugin(options: AppIconsPluginOptions): Plugin {
           return;
         }
 
-        const icon = path ? iconRoutes.get(path) : undefined;
+        const icon = icons.find((candidate) => candidate.path === path);
 
         if (!icon) {
           next();

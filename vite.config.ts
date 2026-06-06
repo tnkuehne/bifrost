@@ -8,12 +8,7 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     svelte({ configFile: false, preprocess: vitePreprocess() }),
-    appIconsPlugin({
-      name: "Bifrost",
-      source: new URL("./src/client/assets/webcam.svg", import.meta.url),
-      backgroundColor: "#f5faf7",
-      themeColor: "#f5faf7",
-    }),
+    appIconsPlugin(),
     cloudflare({ tunnel: true }),
   ],
 });
