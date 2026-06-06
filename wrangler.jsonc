@@ -7,10 +7,6 @@
   "name": "bifrost",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-29",
-  "build": {
-    "command": "pnpm run build",
-    "watch_dir": "src",
-  },
   "migrations": [
     {
       "new_sqlite_classes": ["SignalingRoom"],

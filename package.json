@@ -2,12 +2,13 @@
   "name": "bifrost",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "vite build",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check",
-    "dev": "wrangler dev --tunnel",
-    "deploy": "wrangler deploy",
-    "deploy:preview": "wrangler versions upload",
+    "dev": "vite dev",
+    "deploy": "pnpm run build && wrangler deploy",
+    "deploy:preview": "pnpm run build && wrangler versions upload",
     "cf-typegen": "wrangler types",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
@@ -20,6 +21,7 @@
     "runed": "^0.37.1"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.40.0",
     "@resvg/resvg-js": "^2.6.2",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tailwindcss/vite": "^4.3.0",
@@ -34,6 +36,6 @@
     "tailwindcss": "^4.3.0",
     "typescript": "^5.5.2",
     "vite": "^8.0.14",
-    "wrangler": "^4.95.0"
+    "wrangler": "^4.98.0"
   }
 }
